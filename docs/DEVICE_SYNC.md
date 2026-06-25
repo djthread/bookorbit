@@ -22,7 +22,7 @@ Bundled Syncthing ──── P2P sync ────► Syncthing on KOReader
 
 - BookOrbit running via Docker Compose.
 - A KOReader-compatible device (any device KOReader runs on).
-- The [KOReader Syncthing plugin](https://github.com/jasonchoimtt/koreader-syncthing) installed on your device.
+- The [KOSyncthing+ plugin](https://github.com/d0nizam/kosyncthing_plus.koplugin) installed on your device.
 - Both BookOrbit and the device on the **same local network** (or reachable via the internet if `SYNCTHING_SYNC_PORT` is forwarded).
 
 ---
@@ -86,20 +86,22 @@ A pairing panel opens, showing BookOrbit's **Syncthing Device ID** and a QR code
 
 ---
 
-## Step 3 — Install the KOReader Syncthing plugin
+## Step 3 — Install the KOSyncthing+ plugin
 
 > Skip this step if you already have the plugin installed.
 
-### On a Kobo running KOReader
+We recommend the [**KOSyncthing+** plugin](https://github.com/d0nizam/kosyncthing_plus.koplugin). It bundles its own Syncthing binary with automatic architecture detection and works out of the box on Kobo, Kindle, and other KOReader devices.
 
-1. Download the latest plugin archive from [github.com/jasonchoimtt/koreader-syncthing/releases](https://github.com/jasonchoimtt/koreader-syncthing/releases).
-2. Extract and copy the `syncthing.koplugin` folder to `/mnt/onboard/.adds/koreader/plugins/`.
-3. The plugin bundles its own Syncthing binary — no separate install needed.
-4. Restart KOReader.
+### On a Kobo / Kindle / other KOReader device
 
-### On Android
+1. Download the latest `kosyncthing_plus.koplugin.zip` from the [releases page](https://github.com/d0nizam/kosyncthing_plus.koplugin/releases).
+2. Extract and copy the `kosyncthing_plus.koplugin/` folder into your KOReader `plugins/` directory:
+   - **Kobo:** `/mnt/onboard/.adds/koreader/plugins/`
+   - **Kindle:** `/mnt/us/koreader/plugins/`
+   - **Android:** `/koreader/plugins/`
+3. Restart KOReader. The plugin appears as **KOSyncthing+** under **☰ → Tools**.
 
-Install Syncthing from [syncthing.net](https://syncthing.net) (or the F-Droid build), then install the KOReader Syncthing plugin as above. You can also point `SYNCTHING_URL` at your existing Syncthing instance and skip the plugin entirely.
+> On Android you can instead point `SYNCTHING_URL` at an existing Syncthing app and skip the on-device plugin entirely.
 
 ---
 
@@ -107,11 +109,10 @@ Install Syncthing from [syncthing.net](https://syncthing.net) (or the F-Droid bu
 
 ### On your KOReader device
 
-1. Open KOReader, tap the top menu, and go to **Tools → More tools → Syncthing**.
-2. Start the Syncthing daemon from within the plugin.
-3. Open the plugin settings and tap **Add remote device**.
-4. Enter BookOrbit's Device ID from the pairing panel (or scan the QR code).
-5. Save.
+1. Open KOReader, tap the top menu, and go to **☰ → Tools → KOSyncthing+**.
+2. Start Syncthing from the plugin menu.
+3. (Optional) Under **Network access**, choose **LAN only** if BookOrbit and the device are on the same network, or **Global** to also use relays/global discovery for sync over the internet.
+4. Open **Setup → Pair with another device** and add BookOrbit's Device ID from the pairing panel — scan the QR code or enter the ID manually.
 
 ### In BookOrbit
 
@@ -121,7 +122,7 @@ Click **Accept** to approve the connection.
 
 ### On your KOReader device (accept the folder)
 
-Back in the Syncthing plugin, you will see a notification about a new shared folder. Accept it and set the local path to where you want your books (e.g. `/mnt/onboard/books`).
+KOSyncthing+ will detect the shared folder (see the **Status & conflicts** menu). Accept it and set the local path to where you want your books — the plugin suggests a default but you can edit it (e.g. `/mnt/onboard/books`).
 
 ---
 
@@ -130,6 +131,38 @@ Back in the Syncthing plugin, you will see a notification about a new shared fol
 Once paired, BookOrbit reconciles your collection immediately and Syncthing transfers the files. In BookOrbit the pairing panel collapses and shows a **progress bar** (0–100%).
 
 On your device, the books appear in the folder you chose in Step 4. KOReader can scan for new books via **File manager → Refresh**.
+
+---
+
+## LAN-only sync (no relays or internet)
+
+By default Syncthing can fall back to public **relay** and **global-discovery** servers so devices find each other over the internet. If BookOrbit and your device are always on the same local network, you can turn those off — sync stays entirely on your LAN, which is more private and removes any dependency on Syncthing's public infrastructure.
+
+**On the device (KOSyncthing+):** set **Network access → LAN only**. This disables global announcement, relays, and auto-upgrade.
+
+**On BookOrbit's Syncthing node:** disable global discovery and relays in the Syncthing GUI (**Actions → Settings → Connections**, uncheck *Global Discovery* and *Enable Relaying*), or via the REST API:
+
+```bash
+curl -X PATCH -H "X-API-Key: $SYNCTHING_API_KEY" \
+  http://127.0.0.1:8384/rest/config/options \
+  -d '{"globalAnnounceEnabled":false,"relaysEnabled":false,"natEnabled":false}'
+```
+
+**Make sure the two nodes can still find each other on the LAN.** With the default bridge networking, local discovery (UDP broadcast) does not reach the container, so use **one** of:
+
+- **Host networking (simplest, Linux):** run the sidecar on the host network so local discovery works with zero extra config. Create `docker-compose.override.yml`:
+
+  ```yaml
+  services:
+    syncthing:
+      network_mode: host
+  ```
+
+  (The `ports:` mappings are ignored in host mode — Syncthing binds directly to the host.) Then pair as usual; the device discovers BookOrbit automatically.
+
+- **Direct address (keep bridge networking):** the sync port is already published, so add BookOrbit's node on the device with an explicit address `tcp://<bookorbit-host-ip>:22000` — no discovery needed.
+
+To stop publishing the sync port to the LAN entirely (e.g. host-network or relay-only setups), set `SYNCTHING_SYNC_BIND=127.0.0.1` in `.env`.
 
 ---
 

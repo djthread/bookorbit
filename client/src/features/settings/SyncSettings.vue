@@ -478,12 +478,12 @@ function syncCompletion(targetId: number): number | null {
                   <li>Install <strong class="text-foreground">KOReader</strong> on your device (e.g. Kobo, Kindle, PocketBook).</li>
                   <li>
                     Install the
-                    <strong class="text-foreground">KOReader Syncthing plugin</strong>
+                    <strong class="text-foreground">KOSyncthing+ plugin</strong>
                     — see
-                    <strong class="text-foreground">github.com/jasonchoimtt/koreader-syncthing</strong>
+                    <strong class="text-foreground">github.com/d0nizam/kosyncthing_plus.koplugin</strong>
                     for the plugin and setup guide.
                   </li>
-                  <li>In the plugin, add the <strong class="text-foreground">BookOrbit device ID</strong> shown above as a remote device.</li>
+                  <li>In the plugin, open <strong class="text-foreground">Setup → Pair with another device</strong> and add the <strong class="text-foreground">BookOrbit device ID</strong> shown above.</li>
                   <li>A confirmation will appear here — click <strong class="text-foreground">Accept</strong> to approve the connection.</li>
                   <li>
                     On your device, accept the shared folder and set the path to

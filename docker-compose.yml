@@ -82,9 +82,24 @@ services:
       - ./data/syncthing:/var/syncthing
       - ./data/app:/data
     ports:
-      - "${SYNCTHING_SYNC_PORT:-22000}:22000/tcp"
-      - "${SYNCTHING_SYNC_PORT:-22000}:22000/udp"
+      # Sync traffic (BEP). Published on all interfaces by default so LAN devices
+      # can connect. Set SYNCTHING_SYNC_BIND=127.0.0.1 to stop exposing it to the
+      # LAN (e.g. relay-only, or when using the host-network override below).
+      - "${SYNCTHING_SYNC_BIND:-0.0.0.0}:${SYNCTHING_SYNC_PORT:-22000}:22000/tcp"
+      - "${SYNCTHING_SYNC_BIND:-0.0.0.0}:${SYNCTHING_SYNC_PORT:-22000}:22000/udp"
       - "${SYNCTHING_GUI_PORT:-127.0.0.1:8384}:8384"
+    # LAN-only sync (no relays / global discovery, no internet dependency):
+    #   1. Set "Network access -> LAN only" in the device plugin (KOSyncthing+).
+    #   2. Disable global discovery + relays on this node in the Syncthing GUI,
+    #      or via the REST API (PATCH /rest/config/options).
+    #   3. For zero-config local discovery between this container and LAN devices,
+    #      run the sidecar on the host network (Linux). Create a
+    #      docker-compose.override.yml with:
+    #        services:
+    #          syncthing:
+    #            network_mode: host   # published "ports" above are then ignored
+    #      Otherwise keep bridge networking and pair using BookOrbit's address
+    #      (tcp://<host-ip>:22000) so no discovery is needed.
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- --header \"X-API-Key: $$STGUIAPIKEY\" http://127.0.0.1:8384/rest/system/ping || exit 1"]
       interval: 30s
