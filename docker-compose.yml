@@ -70,7 +70,7 @@ services:
   syncthing:
     profiles: [sync]
     container_name: bookorbit-syncthing
-    image: syncthing/syncthing:1.27.12
+    image: syncthing/syncthing:2.1.1@sha256:775c4aac486263ca8653055bba7d3061799281974b706695e17bc798da3f4e92
     restart: unless-stopped
     init: true
     environment:
