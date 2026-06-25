@@ -77,14 +77,19 @@ function makeService() {
     emit: vi.fn(),
   };
 
+  const collectionEvents = {
+    emit: vi.fn(),
+  };
+
   const service = new CollectionService(
     collectionRepo as never,
     libraryService as never,
     queryBuilder as never,
     bookService as never,
     achievementEvents as never,
+    collectionEvents as never,
   );
-  return { service, collectionRepo, libraryService, queryBuilder, bookService, achievementEvents };
+  return { service, collectionRepo, libraryService, queryBuilder, bookService, achievementEvents, collectionEvents };
 }
 
 describe('CollectionService', () => {
@@ -355,7 +360,7 @@ describe('CollectionService', () => {
 
   describe('addBooks', () => {
     it('verifies collection ownership and resolves the selection before adding books', async () => {
-      const { service, collectionRepo, bookService } = makeService();
+      const { service, collectionRepo, bookService, collectionEvents } = makeService();
       collectionRepo.findById.mockResolvedValueOnce([makeCollection()]).mockResolvedValueOnce([makeCollection({ bookCount: 2 })]);
       collectionRepo.findByIdForViewer.mockResolvedValue([makeCollection({ bookCount: 2 })]);
       bookService.resolveSelectionToIds.mockResolvedValue([7, 8]);
@@ -367,6 +372,7 @@ describe('CollectionService', () => {
 
       expect(bookService.resolveSelectionToIds).toHaveBeenCalledWith(selection, user);
       expect(collectionRepo.addBooks).toHaveBeenCalledWith(10, [7, 8]);
+      expect(collectionEvents.emit).toHaveBeenCalledWith('collection.books-changed', expect.objectContaining({ collectionId: 10 }));
       expect(result).toEqual(expect.objectContaining({ bookCount: 2 }));
     });
 
@@ -381,13 +387,14 @@ describe('CollectionService', () => {
     });
 
     it('does not write membership rows when the selection resolves to zero books', async () => {
-      const { service, collectionRepo, bookService } = makeService();
+      const { service, collectionRepo, bookService, collectionEvents } = makeService();
       collectionRepo.findById.mockResolvedValueOnce([makeCollection()]).mockResolvedValueOnce([makeCollection({ bookCount: 0 })]);
       bookService.resolveSelectionToIds.mockResolvedValue([]);
 
       const result = await service.addBooks(10, { query: { libraryId: 5 } }, makeUser());
 
       expect(collectionRepo.addBooks).not.toHaveBeenCalled();
+      expect(collectionEvents.emit).not.toHaveBeenCalled();
       expect(result).toEqual(expect.objectContaining({ bookCount: 0 }));
     });
 
@@ -622,7 +629,7 @@ describe('CollectionService', () => {
 
   describe('removeBooks', () => {
     it('updates collection membership and returns hydrated collection', async () => {
-      const { service, collectionRepo, bookService } = makeService();
+      const { service, collectionRepo, bookService, collectionEvents } = makeService();
       collectionRepo.findById.mockResolvedValueOnce([makeCollection()]).mockResolvedValueOnce([makeCollection({ bookCount: 1 })]);
       collectionRepo.findByIdForViewer.mockResolvedValue([makeCollection({ bookCount: 1 })]);
       bookService.resolveSelectionToIds.mockResolvedValue([7]);
@@ -632,6 +639,7 @@ describe('CollectionService', () => {
 
       expect(bookService.resolveSelectionToIds).toHaveBeenCalledWith({ bookIds: [7] }, expect.objectContaining({ id: 1 }));
       expect(collectionRepo.removeBooks).toHaveBeenCalledWith(10, [7]);
+      expect(collectionEvents.emit).toHaveBeenCalledWith('collection.books-changed', expect.objectContaining({ collectionId: 10 }));
       expect(result).toEqual(expect.objectContaining({ bookCount: 1 }));
     });
 

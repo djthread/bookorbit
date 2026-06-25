@@ -59,6 +59,7 @@ function makeService(syncEnabled = true) {
     getCompletion: vi.fn(),
     ensureFolder: vi.fn().mockResolvedValue(undefined),
     acceptDevice: vi.fn().mockResolvedValue(undefined),
+    removeFolder: vi.fn().mockResolvedValue(undefined),
   };
 
   const reconciler = {
@@ -256,6 +257,28 @@ describe('SyncService', () => {
       const { service, syncRepo } = makeService();
       syncRepo.findById.mockResolvedValue(makeTarget({ userId: 1 }));
       syncRepo.delete.mockResolvedValue(undefined);
+
+      await service.remove(1, makeUser({ id: 1 }));
+
+      expect(syncRepo.delete).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('removes the Syncthing folder before deleting the row', async () => {
+      const { service, syncRepo, syncthing } = makeService();
+      syncRepo.findById.mockResolvedValue(makeTarget({ userId: 1, syncthingFolderId: 'folder-abc' }));
+      syncRepo.delete.mockResolvedValue(undefined);
+
+      await service.remove(1, makeUser({ id: 1 }));
+
+      expect(syncthing.removeFolder).toHaveBeenCalledWith('folder-abc');
+      expect(syncRepo.delete).toHaveBeenCalledWith(1, 1);
+    });
+
+    it('still deletes the row when Syncthing folder removal fails', async () => {
+      const { service, syncRepo, syncthing } = makeService();
+      syncRepo.findById.mockResolvedValue(makeTarget({ userId: 1 }));
+      syncRepo.delete.mockResolvedValue(undefined);
+      syncthing.removeFolder.mockRejectedValue(new Error('syncthing down'));
 
       await service.remove(1, makeUser({ id: 1 }));
 

@@ -11,6 +11,7 @@ import { BookService } from '../book/book.service';
 import { BookQueryBuilder } from '../book/book-query-builder.service';
 import { LibraryService } from '../library/library.service';
 import { AchievementEventsService, ACHIEVEMENT_EVENT_COLLECTION_CREATED } from '../achievement/achievement-events.service';
+import { CollectionEventsService, COLLECTION_BOOKS_CHANGED } from './collection-events.service';
 import { CollectionBooksDto } from './dto/collection-books.dto';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { ReorderCollectionsDto } from './dto/reorder-collections.dto';
@@ -41,6 +42,7 @@ export class CollectionService {
     private readonly queryBuilder: BookQueryBuilder,
     private readonly bookService: BookService,
     private readonly achievementEvents: AchievementEventsService,
+    private readonly collectionEvents: CollectionEventsService,
   ) {}
 
   private assertReadAccess(collection: CollectionRow, user: RequestUser): void {
@@ -229,6 +231,7 @@ export class CollectionService {
       const bookIds = await this.resolveSelectionBookIds(dto, user);
       if (bookIds.length > 0) {
         await this.collectionRepo.addBooks(id, bookIds);
+        this.collectionEvents.emit(COLLECTION_BOOKS_CHANGED, { collectionId: id, userId: user.id });
       }
       this.logger.log(`[${event}] [end] collectionId=${id} durationMs=${Date.now() - startedAt} bookCount=${bookIds.length} - add books completed`);
       return this.hydrateForViewer(collection, user);
@@ -252,6 +255,7 @@ export class CollectionService {
       const bookIds = await this.resolveSelectionBookIds(dto, user);
       if (bookIds.length > 0) {
         await this.collectionRepo.removeBooks(id, bookIds);
+        this.collectionEvents.emit(COLLECTION_BOOKS_CHANGED, { collectionId: id, userId: user.id });
       }
       this.logger.log(
         `[${event}] [end] collectionId=${id} durationMs=${Date.now() - startedAt} bookCount=${bookIds.length} - remove books completed`,
