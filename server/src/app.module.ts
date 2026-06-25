@@ -71,11 +71,13 @@ import { ReadwiseModule } from './modules/readwise/readwise.module';
 import { StorygraphModule } from './modules/storygraph/storygraph.module';
 import { CustomMetadataModule } from './modules/custom-metadata/custom-metadata.module';
 import { CustomIconModule } from './modules/custom-icon/custom-icon.module';
+<<<<<<< HEAD
 import { AccountActivityModule } from './modules/account-activity/account-activity.module';
 import { SharedReadingInsightsModule } from './modules/shared-reading-insights/shared-reading-insights.module';
 import { BookDuplicatesModule } from './modules/book-duplicates/book-duplicates.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { BookMoveModule } from './modules/book-move/book-move.module';
+import { SyncModule } from './modules/sync/sync.module';
 
 @Module({
   imports: [
@@ -153,12 +155,14 @@ import { BookMoveModule } from './modules/book-move/book-move.module';
     HardcoverModule,
     ReadwiseModule,
     StorygraphModule,
+<<<<<<< HEAD
     AccountActivityModule,
     SharedReadingInsightsModule,
     BookDuplicatesModule,
     MaintenanceModule,
     BookMoveModule,
     BrowseCountsModule,
+    SyncModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
