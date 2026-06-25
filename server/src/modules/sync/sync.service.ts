@@ -1,7 +1,8 @@
 import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { join } from 'path';
+import { rm } from 'fs/promises';
+import { basename, join } from 'path';
 
 import { DEFAULT_SYNC_LAYOUT, type SyncTarget, type SyncTargetProgress } from '@bookorbit/types';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
@@ -153,6 +154,25 @@ export class SyncService {
   async remove(id: number, user: RequestUser): Promise<void> {
     this.assertEnabled();
     const existing = await this.findTargetForUserOrThrow(id, user);
+
+    // Best-effort cleanup of the Syncthing folder + on-disk export dir. Failures
+    // here must not block deletion of the target row.
+    await this.syncthing.removeFolder(existing.syncthingFolderId).catch((err: unknown) => {
+      const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
+      this.logger.warn(`[sync] removeFolder failed targetId=${existing.id} error="${msg}"`);
+    });
+
+    // Guard: only delete a directory that still looks like this target's managed
+    // export dir (named after its folder id), never an arbitrary path.
+    if (basename(existing.exportPath) === existing.syncthingFolderId) {
+      await rm(existing.exportPath, { recursive: true, force: true }).catch((err: unknown) => {
+        const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
+        this.logger.warn(`[sync] export dir cleanup failed targetId=${existing.id} error="${msg}"`);
+      });
+    } else {
+      this.logger.warn(`[sync] skipped export dir cleanup, unexpected path targetId=${existing.id}`);
+    }
+
     await this.syncRepo.delete(id, existing.userId);
   }
 

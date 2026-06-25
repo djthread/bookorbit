@@ -119,6 +119,16 @@ export class SyncthingClientService {
     }
   }
 
+  async removeFolder(folderId: string): Promise<void> {
+    try {
+      await this.request('DELETE', `/rest/config/folders/${encodeURIComponent(folderId)}`);
+      this.logger.log(`[syncthing] removeFolder folderId=${sanitizeLogValue(folderId)}`);
+    } catch (err) {
+      if (isNotFound(err)) return;
+      throw err;
+    }
+  }
+
   async getCompletion(folderId: string, deviceId: string): Promise<SyncthingCompletion> {
     return this.request<SyncthingCompletion>(
       'GET',

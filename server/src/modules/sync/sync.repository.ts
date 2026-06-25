@@ -21,11 +21,25 @@ export class SyncRepository {
     return this.attachCollectionIds(rows);
   }
 
+  async findAll(): Promise<SyncTargetRow[]> {
+    const rows = await this.db.select().from(syncTargets).orderBy(syncTargets.id);
+    return this.attachCollectionIds(rows);
+  }
+
   async findById(id: number): Promise<SyncTargetRow | null> {
     const [row] = await this.db.select().from(syncTargets).where(eq(syncTargets.id, id)).limit(1);
     if (!row) return null;
     const [result] = await this.attachCollectionIds([row]);
     return result ?? null;
+  }
+
+  async findTargetsByCollectionId(collectionId: number): Promise<SyncTargetRow[]> {
+    const rows = await this.db
+      .select()
+      .from(syncTargetCollections)
+      .innerJoin(syncTargets, eq(syncTargets.id, syncTargetCollections.syncTargetId))
+      .where(eq(syncTargetCollections.collectionId, collectionId));
+    return this.attachCollectionIds(rows.map((r) => r.sync_targets));
   }
 
   async insert(values: typeof syncTargets.$inferInsert): Promise<RawTarget> {
