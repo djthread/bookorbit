@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { MockedFunction } from 'vitest';
 import { link, copyFile, mkdir, readdir, rm, stat } from 'fs/promises';
 
+import type { SyncLayout } from '@bookorbit/types';
+
 import { SyncReconcilerService } from './sync-reconciler.service';
 import { SyncthingClientService } from './syncthing-client.service';
 
@@ -25,11 +27,12 @@ const mockReaddir = readdir as MockedFunction<typeof readdir>;
 const mockRm = rm as MockedFunction<typeof rm>;
 const mockStat = stat as MockedFunction<typeof stat>;
 
-function makeTarget(overrides: Partial<{ id: number; syncthingFolderId: string; exportPath: string }> = {}) {
+function makeTarget(overrides: Partial<{ id: number; syncthingFolderId: string; exportPath: string; layout: SyncLayout }> = {}) {
   return {
     id: 1,
     syncthingFolderId: 'folder-abc',
     exportPath: '/data/sync/1',
+    layout: 'author' as SyncLayout,
     ...overrides,
   };
 }
@@ -43,7 +46,10 @@ function makeFile(overrides: Partial<{ bookId: number; absolutePath: string; for
   };
 }
 
-function makeMeta(bookId: number, overrides: Partial<{ title: string; authors: string[]; seriesName: string; seriesIndex: number; publishedYear: number }> = {}) {
+function makeMeta(
+  bookId: number,
+  overrides: Partial<{ title: string; authors: string[]; seriesName: string; seriesIndex: number; publishedYear: number }> = {},
+) {
   return {
     bookId,
     title: 'Neuromancer',
@@ -85,9 +91,7 @@ describe('SyncReconcilerService', () => {
     mockCopyFile.mockResolvedValue(undefined as any);
     mockRm.mockResolvedValue(undefined as any);
     mockReaddir.mockResolvedValue([]);
-    mockStat.mockImplementation(async () => {
-      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
-    });
+    mockStat.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
   });
 
   afterEach(() => {
@@ -95,13 +99,35 @@ describe('SyncReconcilerService', () => {
   });
 
   describe('buildRelativePaths', () => {
-    it('resolves Author/Title.ext for a book with metadata', () => {
+    it('resolves Author/Title.ext for the author layout', () => {
+      const service = new SyncReconcilerService({} as any, {} as any);
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const result = service.buildRelativePaths([file], meta, 'author');
+      const relPath = result.get(file)!;
+      expect(relPath).toBe('William Gibson/Neuromancer (1984).epub');
+    });
+
+    it('flattens to Title.ext (no folders) for the default flat layout', () => {
       const service = new SyncReconcilerService({} as any, {} as any);
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const result = service.buildRelativePaths([file], meta);
       const relPath = result.get(file)!;
-      expect(relPath).toBe('William Gibson/Neuromancer (1984).epub');
+      expect(relPath).toBe('Neuromancer (1984).epub');
+    });
+
+    it('groups series into a folder but keeps standalone books flat for the series layout', () => {
+      const service = new SyncReconcilerService({} as any, {} as any);
+      const standalone = makeFile({ bookId: 1, absolutePath: '/books/neuromancer.epub' });
+      const inSeries = makeFile({ bookId: 2, absolutePath: '/books/count-zero.epub' });
+      const meta = new Map([
+        [1, makeMeta(1)],
+        [2, makeMeta(2, { seriesName: 'Sprawl', seriesIndex: 2 })],
+      ]);
+      const result = service.buildRelativePaths([standalone, inSeries], meta, 'series');
+      expect(result.get(standalone)!).toBe('Neuromancer (1984).epub');
+      expect(result.get(inSeries)!.startsWith('Sprawl/')).toBe(true);
     });
 
     it('uses originalFilename as fallback when no metadata', () => {
@@ -135,11 +161,11 @@ describe('SyncReconcilerService', () => {
       expect(paths.some((p) => p.includes('(2)'))).toBe(true);
     });
 
-    it('includes series subfolder when series metadata is present', () => {
+    it('includes series subfolder when series metadata is present (author layout)', () => {
       const service = new SyncReconcilerService({} as any, {} as any);
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1, { seriesName: 'Sprawl', seriesIndex: 1 })]]);
-      const result = service.buildRelativePaths([file], meta);
+      const result = service.buildRelativePaths([file], meta, 'author');
       const relPath = result.get(file)!;
       expect(relPath).toContain('Sprawl');
     });
@@ -216,10 +242,8 @@ describe('SyncReconcilerService', () => {
 
       const expectedRelPath = 'William Gibson/Neuromancer (1984).epub';
       mockReaddir
-        .mockImplementationOnce(async () => [
-          { name: 'William Gibson', isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false } as any,
-        ])
-        .mockImplementationOnce(async () => [
+        .mockResolvedValueOnce([{ name: 'William Gibson', isDirectory: () => true, isFile: () => false, isSymbolicLink: () => false } as any])
+        .mockResolvedValueOnce([
           { name: 'Neuromancer (1984).epub', isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false } as any,
         ])
         .mockResolvedValue([]);

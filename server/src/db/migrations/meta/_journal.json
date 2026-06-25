@@ -232,6 +232,13 @@
       "when": 1782359041820,
       "tag": "0032_add_sync_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782408999265,
+      "tag": "0033_add_sync_layout",
+      "breakpoints": true
     }
   ]
 }
