@@ -72,6 +72,8 @@ function resolveLegacyIntegrationsRoute(tab: unknown): string {
       return 'settings-koreader'
     case 'hardcover':
       return 'settings-hardcover'
+    case 'sync':
+      return 'settings-sync'
     case 'kobo':
     default:
       return 'settings-kobo'
@@ -145,6 +147,12 @@ export const routes: RouteRecordRaw[] = [
             name: 'settings-hardcover',
             component: () => import('@/features/hardcover/components/HardcoverSettings.vue'),
             meta: { maxWidth: 'max-w-3xl', title: 'Hardcover' },
+          },
+          {
+            path: 'sync',
+            name: 'settings-sync',
+            component: () => import('@/features/settings/SyncSettings.vue'),
+            meta: { maxWidth: 'max-w-4xl', title: 'Device Sync' },
           },
           {
             path: 'email',
