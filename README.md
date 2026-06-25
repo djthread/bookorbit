@@ -48,6 +48,7 @@ Try the live instance before you install. No account required.
 - **KOReader Plugin**: An on-device catalog browser with search, download, and status and rating management, alongside full progress and annotation sync.
 - **Annotations & Highlights**: Highlights from the web reader, KOReader, and Kobo merge into one searchable hub. Filter by color, style, and source; export as Markdown, CSV, or JSON.
 - **Hardcover, Readwise & StoryGraph Sync**: Push status, progress, reading dates, and ratings to Hardcover on configurable triggers; status and progress to The StoryGraph; and new highlights and notes to Readwise as you create them, from both the web reader and synced devices. Hardcover read history can be pulled back to backfill blank BookOrbit entries.
+- **Device Sync (Syncthing)**: Automatically deliver collection files to KOReader devices over a local network using the bundled Syncthing sidecar, with no cloud account required. See the [Device Sync setup guide](docs/DEVICE_SYNC.md).
 - **Statistics, Goals & Achievements**: Daily reading time, heatmaps, streaks, and library health, plus yearly goals, monthly challenges, and 50+ achievements across five categories. Reading DNA profiles your reading style from your actual session history.
 
 ### Library Management
@@ -96,6 +97,8 @@ docker compose up -d
 Open `http://your-server-ip:3000` and complete setup using your `SETUP_BOOTSTRAP_TOKEN`.
 
 For the full installation guide including reverse proxy setup, file permissions on NAS, external databases, and environment variable reference, see **[bookorbit.app/installation](https://bookorbit.app/installation)**.
+
+To enable automatic file delivery to KOReader devices via Syncthing, see **[docs/DEVICE_SYNC.md](docs/DEVICE_SYNC.md)**.
 
 ## KOReader Plugin
 
