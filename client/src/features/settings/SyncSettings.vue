@@ -437,16 +437,19 @@ function syncCompletion(targetId: number): number | null {
 
               <!-- Paired device status -->
               <div
-                v-if="target.deviceId && !pendingDevices(target.id).length"
+                v-if="target.deviceId"
                 class="flex items-center gap-2 text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/40 rounded-md px-3 py-2"
               >
                 <Check :size="13" class="shrink-0" />
                 <span>Device paired — files are being delivered automatically</span>
               </div>
 
-              <!-- Pending devices -->
-              <div v-if="pendingDevices(target.id).length > 0">
+              <!-- Pending devices (only while this target is unpaired; the
+                   Syncthing pending list is global, so a stray device must not
+                   be acceptable onto an already-paired target) -->
+              <div v-if="!target.deviceId && pendingDevices(target.id).length > 0">
                 <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Pending Devices</p>
+                <p class="text-[11px] text-muted-foreground mb-2 -mt-1">Accept only the device you intend to pair with this target.</p>
                 <div class="space-y-2">
                   <div
                     v-for="device in pendingDevices(target.id)"

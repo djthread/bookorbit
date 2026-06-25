@@ -209,6 +209,15 @@ export class SyncService {
     this.assertEnabled();
 
     const target = await this.findTargetForUserOrThrow(id, user);
+
+    // Syncthing's pending-device list is global, so the same device shows up under
+    // every target in the UI. Guard against accepting a device onto a target that
+    // is already paired with a different one — that would silently rebind the
+    // folder and repoint progress tracking at the wrong device.
+    if (target.deviceId && target.deviceId !== dto.deviceId) {
+      throw new ConflictException('This target is already paired with another device. Delete and recreate the target to pair a different device.');
+    }
+
     await this.syncthing.acceptDevice(dto.deviceId, target.syncthingFolderId);
     await this.syncRepo.update(id, target.userId, { deviceId: dto.deviceId });
 
