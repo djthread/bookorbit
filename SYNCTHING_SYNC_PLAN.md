@@ -21,8 +21,9 @@ library. A KOReader user must pull each book by hand over OPDS.
 ### Why Syncthing
 
 - P2P, no cloud account, resumes well over the Kobo's flaky wifi / e-ink sleep cycles.
-- A maintained [koreader-syncthing plugin](https://github.com/jasonchoimtt/koreader-syncthing)
-  runs the receiving side **inside KOReader**.
+- A maintained [KOSyncthing+ plugin](https://github.com/d0nizam/kosyncthing_plus.koplugin)
+  runs the receiving side **inside KOReader** (bundles its own Syncthing binary and
+  a CA cert bundle, so it works on Kobo devices without a system certificate store).
 - Full [REST API](https://docs.syncthing.net/dev/rest.html) (auth `X-API-Key`), so
   BookOrbit can drive pairing + folder sharing programmatically instead of making
   the user hand-edit Syncthing config.
@@ -143,8 +144,8 @@ New `server/src/modules/sync/` following the existing module layout
 - Flow:
   1. Create target → pick collection(s).
   2. **Pairing screen:** show BookOrbit's Syncthing device ID as text + **QR code**,
-     with step-by-step Kobo instructions (install KOReader + NickelMenu + syncthing
-     plugin; add this device; accept the shared folder under `/mnt/onboard`).
+     with step-by-step Kobo instructions (install KOReader + NickelMenu +
+     KOSyncthing+ plugin; add this device; accept the shared folder under `/mnt/onboard`).
   3. **Accept device:** poll `GET /sync/targets/:id/status`; when the Kobo appears in
      pending devices, surface an **Accept** button.
   4. **Progress:** live bar from completion %, file count, last-synced, errors.
