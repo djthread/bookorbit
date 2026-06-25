@@ -8,11 +8,17 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { useSyncTargets } from '@/features/sync/composables/useSyncTargets'
 import { useCollections } from '@/features/collection/composables/useCollections'
 import { api } from '@/lib/api'
-import type { SyncTarget, SyncTargetProgress, PendingDevice } from '@bookorbit/types'
+import type { SyncTarget, SyncTargetProgress, PendingDevice, SyncLayout } from '@bookorbit/types'
 
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
-const { targets, loading, error, fetchTargets, createTarget, deleteTarget, acceptDevice, reconcile } = useSyncTargets()
+const { targets, loading, error, fetchTargets, createTarget, updateTarget, deleteTarget, acceptDevice, reconcile } = useSyncTargets()
+
+const LAYOUT_OPTIONS: { value: SyncLayout; label: string; hint: string }[] = [
+  { value: 'flat', label: 'Flat — all books together', hint: 'One tap to open in KOReader. Best for the My Bookshelf plugin.' },
+  { value: 'series', label: 'By series', hint: 'Series get their own shelf; standalone books stay at the top level.' },
+  { value: 'author', label: 'By author', hint: 'Author/Series/Title folders — mirrors KOReader’s native file tree.' },
+]
 const { collections, fetchCollections } = useCollections()
 
 const pageLoading = ref(true)
@@ -29,11 +35,13 @@ const expandedIds = ref<number[]>([])
 const showCreateForm = ref(false)
 const newName = ref('')
 const newCollectionIds = ref<number[]>([])
+const newLayout = ref<SyncLayout>('flat')
 const creating = ref(false)
 
 // Per-action loading state
 const acceptingTarget = ref<number | null>(null)
 const reconcilingTarget = ref<number | null>(null)
+const updatingLayout = ref<number | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
@@ -101,11 +109,12 @@ async function submitCreate(): Promise<void> {
   if (!newName.value.trim() || newCollectionIds.value.length === 0) return
   creating.value = true
   try {
-    const target = await createTarget({ name: newName.value.trim(), collectionIds: newCollectionIds.value })
+    const target = await createTarget({ name: newName.value.trim(), collectionIds: newCollectionIds.value, layout: newLayout.value })
     toast.success(`Sync target "${target.name}" created`)
     showCreateForm.value = false
     newName.value = ''
     newCollectionIds.value = []
+    newLayout.value = 'flat'
     if (!expandedIds.value.includes(target.id)) {
       expandedIds.value = [...expandedIds.value, target.id]
     }
@@ -121,6 +130,21 @@ function cancelCreate(): void {
   showCreateForm.value = false
   newName.value = ''
   newCollectionIds.value = []
+  newLayout.value = 'flat'
+}
+
+async function handleLayoutChange(target: SyncTarget, layout: SyncLayout): Promise<void> {
+  if (layout === target.layout) return
+  updatingLayout.value = target.id
+  try {
+    await updateTarget(target.id, { layout })
+    toast.success('Layout updated — re-syncing files to the device')
+    setTimeout(() => fetchStatusFor(target.id), 1500)
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'Failed to update layout')
+  } finally {
+    updatingLayout.value = null
+  }
 }
 
 async function handleAcceptDevice(target: SyncTarget, deviceId: string): Promise<void> {
@@ -249,6 +273,14 @@ function syncCompletion(targetId: number): number | null {
           </div>
         </div>
 
+        <div>
+          <label class="settings-label block mb-1.5">On-device folder layout</label>
+          <select v-model="newLayout" class="input-field w-full">
+            <option v-for="opt in LAYOUT_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+          </select>
+          <p class="text-xs text-muted-foreground mt-1.5">{{ LAYOUT_OPTIONS.find((o) => o.value === newLayout)?.hint }}</p>
+        </div>
+
         <div class="flex items-center gap-2 pt-1">
           <button
             class="settings-btn-primary"
@@ -355,6 +387,23 @@ function syncCompletion(targetId: number): number | null {
           <!-- Expanded panel -->
           <div v-if="expandedIds.includes(target.id)" class="border-t border-border">
             <div class="p-5 space-y-5">
+
+              <!-- Folder layout -->
+              <div>
+                <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2.5">On-Device Folder Layout</p>
+                <select
+                  :value="target.layout"
+                  :disabled="updatingLayout === target.id"
+                  class="input-field w-full"
+                  @change="handleLayoutChange(target, ($event.target as HTMLSelectElement).value as SyncLayout)"
+                >
+                  <option v-for="opt in LAYOUT_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <p class="text-xs text-muted-foreground mt-1.5">
+                  {{ LAYOUT_OPTIONS.find((o) => o.value === target.layout)?.hint }}
+                  Changing this re-links and re-syncs all files to the device.
+                </p>
+              </div>
 
               <!-- Our Syncthing device ID + QR -->
               <div v-if="ourDeviceId(target.id)">

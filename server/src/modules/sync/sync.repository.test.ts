@@ -21,6 +21,7 @@ function makeRawTarget(overrides?: Record<string, unknown>) {
     exportPath: '/data/sync/folder-abc',
     deviceId: null,
     mode: 'sendonly',
+    layout: 'flat',
     status: 'idle',
     lastCompletion: null,
     lastSyncedAt: null,
@@ -171,9 +172,7 @@ describe('SyncRepository', () => {
       });
 
       expect(result).toEqual(raw);
-      expect(values).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: 10, name: 'Kobo Sync' }),
-      );
+      expect(values).toHaveBeenCalledWith(expect.objectContaining({ userId: 10, name: 'Kobo Sync' }));
     });
   });
 

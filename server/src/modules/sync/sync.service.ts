@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { join } from 'path';
 
-import type { SyncTarget, SyncTargetProgress } from '@bookorbit/types';
+import { DEFAULT_SYNC_LAYOUT, type SyncTarget, type SyncTargetProgress } from '@bookorbit/types';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
 import type { RequestUser } from '../../common/types/request-user';
 import { SyncRepository } from './sync.repository';
@@ -59,7 +59,7 @@ export class SyncService {
     return target;
   }
 
-  private triggerReconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath'>): void {
+  private triggerReconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>): void {
     this.reconciler.reconcile(target).catch((err: unknown) => {
       const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
       this.logger.error(`[sync] Background reconcile failed targetId=${target.id} error="${msg}"`);
@@ -90,6 +90,7 @@ export class SyncService {
         syncthingFolderId,
         exportPath,
         mode: 'sendonly',
+        layout: dto.layout ?? DEFAULT_SYNC_LAYOUT,
         status: 'idle',
       });
     } catch (error) {
@@ -120,8 +121,11 @@ export class SyncService {
     const existing = await this.findTargetForUserOrThrow(id, user);
 
     try {
-      if (dto.name !== undefined) {
-        await this.syncRepo.update(id, existing.userId, { name: dto.name });
+      const fields: Partial<{ name: string; layout: string }> = {};
+      if (dto.name !== undefined) fields.name = dto.name;
+      if (dto.layout !== undefined) fields.layout = dto.layout;
+      if (Object.keys(fields).length > 0) {
+        await this.syncRepo.update(id, existing.userId, fields);
       }
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -137,7 +141,9 @@ export class SyncService {
     const updated = await this.syncRepo.findById(id);
     if (!updated) throw new NotFoundException(TARGET_NOT_FOUND);
 
-    if (dto.collectionIds !== undefined) {
+    // A layout change rewrites every export path, so reconcile to re-link + prune.
+    const layoutChanged = dto.layout !== undefined && dto.layout !== existing.layout;
+    if (dto.collectionIds !== undefined || layoutChanged) {
       this.triggerReconcile(updated);
     }
 

@@ -31,6 +31,7 @@ function makeTarget(overrides?: Record<string, unknown>) {
     exportPath: '/data/sync/folder-abc',
     deviceId: null,
     mode: 'sendonly' as const,
+    layout: 'flat' as const,
     status: 'idle' as const,
     lastCompletion: null,
     lastSyncedAt: null,
@@ -72,12 +73,7 @@ function makeService(syncEnabled = true) {
     }),
   };
 
-  const service = new SyncService(
-    syncRepo as never,
-    syncthing as never,
-    reconciler as never,
-    config as never,
-  );
+  const service = new SyncService(syncRepo as never, syncthing as never, reconciler as never, config as never);
 
   return { service, syncRepo, syncthing, reconciler };
 }
@@ -183,9 +179,7 @@ describe('SyncService', () => {
   describe('update', () => {
     it('updates name and returns the hydrated target', async () => {
       const { service, syncRepo } = makeService();
-      syncRepo.findById
-        .mockResolvedValueOnce(makeTarget())
-        .mockResolvedValueOnce(makeTarget({ name: 'Renamed' }));
+      syncRepo.findById.mockResolvedValueOnce(makeTarget()).mockResolvedValueOnce(makeTarget({ name: 'Renamed' }));
       syncRepo.update.mockResolvedValue({ id: 1 });
 
       const result = await service.update(1, { name: 'Renamed' }, makeUser());
@@ -196,9 +190,7 @@ describe('SyncService', () => {
 
     it('updates collections and triggers reconcile when collectionIds are provided', async () => {
       const { service, syncRepo, reconciler } = makeService();
-      syncRepo.findById
-        .mockResolvedValueOnce(makeTarget())
-        .mockResolvedValueOnce(makeTarget({ collectionIds: [3, 4] }));
+      syncRepo.findById.mockResolvedValueOnce(makeTarget()).mockResolvedValueOnce(makeTarget({ collectionIds: [3, 4] }));
       syncRepo.setCollections.mockResolvedValue(undefined);
       reconciler.reconcile.mockResolvedValue(undefined);
 
@@ -209,11 +201,32 @@ describe('SyncService', () => {
       expect(reconciler.reconcile).toHaveBeenCalled();
     });
 
+    it('updates layout and triggers reconcile when the layout changes', async () => {
+      const { service, syncRepo, reconciler } = makeService();
+      syncRepo.findById.mockResolvedValueOnce(makeTarget({ layout: 'flat' })).mockResolvedValueOnce(makeTarget({ layout: 'author' }));
+      syncRepo.update.mockResolvedValue({ id: 1 });
+      reconciler.reconcile.mockResolvedValue(undefined);
+
+      await service.update(1, { layout: 'author' }, makeUser());
+
+      expect(syncRepo.update).toHaveBeenCalledWith(1, 1, { layout: 'author' });
+      await Promise.resolve();
+      expect(reconciler.reconcile).toHaveBeenCalled();
+    });
+
+    it('does not trigger reconcile when the layout is unchanged', async () => {
+      const { service, syncRepo, reconciler } = makeService();
+      syncRepo.findById.mockResolvedValueOnce(makeTarget({ layout: 'flat' })).mockResolvedValueOnce(makeTarget({ layout: 'flat' }));
+      syncRepo.update.mockResolvedValue({ id: 1 });
+
+      await service.update(1, { layout: 'flat' }, makeUser());
+
+      expect(reconciler.reconcile).not.toHaveBeenCalled();
+    });
+
     it('does not trigger reconcile when only name changes', async () => {
       const { service, syncRepo, reconciler } = makeService();
-      syncRepo.findById
-        .mockResolvedValueOnce(makeTarget())
-        .mockResolvedValueOnce(makeTarget({ name: 'Renamed' }));
+      syncRepo.findById.mockResolvedValueOnce(makeTarget()).mockResolvedValueOnce(makeTarget({ name: 'Renamed' }));
       syncRepo.update.mockResolvedValue({ id: 1 });
 
       await service.update(1, { name: 'Renamed' }, makeUser());
@@ -302,9 +315,7 @@ describe('SyncService', () => {
   describe('acceptDevice', () => {
     it('calls syncthing acceptDevice and stores deviceId', async () => {
       const { service, syncRepo, syncthing } = makeService();
-      syncRepo.findById
-        .mockResolvedValueOnce(makeTarget({ deviceId: null }))
-        .mockResolvedValueOnce(makeTarget({ deviceId: 'kobo-123' }));
+      syncRepo.findById.mockResolvedValueOnce(makeTarget({ deviceId: null })).mockResolvedValueOnce(makeTarget({ deviceId: 'kobo-123' }));
       syncthing.acceptDevice.mockResolvedValue(undefined);
       syncRepo.update.mockResolvedValue({ id: 1 });
 

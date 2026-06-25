@@ -78,9 +78,7 @@ describe('SyncthingClientService', () => {
     const target = { syncthingFolderId: 'folder-1', exportPath: '/data/sync/1', name: 'My Books', mode: 'sendonly' as const };
 
     it('PATCHes an existing folder', async () => {
-      fetchSpy
-        .mockResolvedValueOnce(makeResponse(200, { ...defaultFolder, id: 'folder-1' }))
-        .mockResolvedValueOnce(makeResponse(200, {}));
+      fetchSpy.mockResolvedValueOnce(makeResponse(200, { ...defaultFolder, id: 'folder-1' })).mockResolvedValueOnce(makeResponse(200, {}));
 
       await service.ensureFolder(target);
 
@@ -207,7 +205,16 @@ describe('SyncthingClientService', () => {
 
   describe('getCompletion', () => {
     it('returns completion data', async () => {
-      const completionData = { completion: 75, globalBytes: 1000, globalItems: 10, needBytes: 250, needItems: 2, needDeletes: 0, remoteState: 'unknown', sequence: 5 };
+      const completionData = {
+        completion: 75,
+        globalBytes: 1000,
+        globalItems: 10,
+        needBytes: 250,
+        needItems: 2,
+        needDeletes: 0,
+        remoteState: 'unknown',
+        sequence: 5,
+      };
       fetchSpy.mockResolvedValueOnce(makeResponse(200, completionData));
 
       const result = await service.getCompletion('folder-1', 'DEV-1');
@@ -230,10 +237,7 @@ describe('SyncthingClientService', () => {
     it('POSTs to db/scan with the folder ID', async () => {
       fetchSpy.mockResolvedValueOnce(makeResponse(200, {}));
       await service.rescan('folder-1');
-      expect(fetchSpy).toHaveBeenCalledWith(
-        'http://localhost:8384/rest/db/scan?folder=folder-1',
-        expect.objectContaining({ method: 'POST' }),
-      );
+      expect(fetchSpy).toHaveBeenCalledWith('http://localhost:8384/rest/db/scan?folder=folder-1', expect.objectContaining({ method: 'POST' }));
     });
 
     it('handles 200 No Content response (empty body)', async () => {

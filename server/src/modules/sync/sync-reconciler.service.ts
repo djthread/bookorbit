@@ -1,10 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { copyFile, link, mkdir, readdir, rm, stat } from 'fs/promises';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { basename, dirname, extname, join, relative, resolve } from 'path';
 
-import { DEFAULT_UPLOAD_PATTERN_BOOK_PER_FILE, resolveUploadPath, type SyncTarget } from '@bookorbit/types';
+import { DEFAULT_SYNC_LAYOUT, resolveUploadPath, SYNC_LAYOUT_PATTERNS, type SyncLayout, type SyncTarget } from '@bookorbit/types';
 import { DB } from '../../db';
 import * as schema from '../../db/schema';
 import { authors, bookAuthors, bookFiles, bookMetadata, books, collectionBooks, syncTargetCollections, syncTargets } from '../../db/schema';
@@ -38,15 +38,15 @@ export class SyncReconcilerService {
     private readonly syncthing: SyncthingClientService,
   ) {}
 
-  async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath'>): Promise<void> {
+  async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>): Promise<void> {
     const event = 'sync.reconcile';
-    this.logger.log(`[${event}] [start] targetId=${target.id}`);
+    this.logger.log(`[${event}] [start] targetId=${target.id} layout=${target.layout}`);
     await this.updateStatus(target.id, 'reconciling');
 
     try {
       const files = await this.resolveTargetFiles(target.id);
       const metaByBookId = await this.resolvePatternMetadata(files.map((f) => f.bookId));
-      const desired = this.buildRelativePaths(files, metaByBookId);
+      const desired = this.buildRelativePaths(files, metaByBookId, target.layout);
 
       await mkdir(target.exportPath, { recursive: true });
 
@@ -96,12 +96,13 @@ export class SyncReconcilerService {
     }
   }
 
-  buildRelativePaths(files: BookFile[], metaByBookId: Map<number, PatternMeta>): Map<BookFile, string> {
+  buildRelativePaths(files: BookFile[], metaByBookId: Map<number, PatternMeta>, layout: SyncLayout = DEFAULT_SYNC_LAYOUT): Map<BookFile, string> {
+    const pattern = SYNC_LAYOUT_PATTERNS[layout] ?? SYNC_LAYOUT_PATTERNS[DEFAULT_SYNC_LAYOUT];
     const used = new Map<string, BookFile>();
     const result = new Map<BookFile, string>();
 
     for (const file of files) {
-      const relPath = this.resolveRelPath(file, metaByBookId.get(file.bookId));
+      const relPath = this.resolveRelPath(file, metaByBookId.get(file.bookId), pattern);
       const candidate = this.deduplicatePath(relPath, used);
       used.set(candidate, file);
       result.set(file, candidate);
@@ -167,7 +168,7 @@ export class SyncReconcilerService {
     return result;
   }
 
-  private resolveRelPath(file: BookFile, meta: PatternMeta | undefined): string {
+  private resolveRelPath(file: BookFile, meta: PatternMeta | undefined, pattern: string): string {
     const pathExt = extname(file.absolutePath).toLowerCase().slice(1);
     const ext = pathExt || (file.format && file.format !== 'unknown' ? file.format : 'bin');
     const stem = basename(file.absolutePath, extname(file.absolutePath));
@@ -182,7 +183,7 @@ export class SyncReconcilerService {
       if (meta.authors.length > 0) tokens['authors'] = meta.authors.join(', ');
     }
 
-    const resolved = resolveUploadPath(DEFAULT_UPLOAD_PATTERN_BOOK_PER_FILE, tokens, ext, { sanitizeForCrossPlatform: true });
+    const resolved = resolveUploadPath(pattern, tokens, ext, { sanitizeForCrossPlatform: true });
     return resolved ?? `${stem}.${ext}`;
   }
 
@@ -258,11 +259,7 @@ export class SyncReconcilerService {
     }
   }
 
-  private async updateStatus(
-    id: number,
-    status: string,
-    opts?: { lastSyncedAt?: Date; lastError?: string; clearError?: boolean },
-  ): Promise<void> {
+  private async updateStatus(id: number, status: string, opts?: { lastSyncedAt?: Date; lastError?: string; clearError?: boolean }): Promise<void> {
     await this.db
       .update(syncTargets)
       .set({
