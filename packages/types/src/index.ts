@@ -62,3 +62,4 @@ export * from "./path";
 export * from "./sidebar";
 export * from "./cover-search-preferences";
 export * from "./cron";
+export * from "./sync-target";
