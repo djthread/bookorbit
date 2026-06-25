@@ -29,3 +29,4 @@ export * from './koreader';
 export * from './achievements';
 export * from './hardcover';
 export * from './user-preferences';
+export * from './sync-targets';

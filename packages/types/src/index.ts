@@ -48,3 +48,4 @@ export * from "./reading-session-source-bucket";
 export * from "./annotation";
 export * from "./hardcover";
 export * from "./path";
+export * from "./sync-target";
