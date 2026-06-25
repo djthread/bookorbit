@@ -37,6 +37,16 @@ export const storageConfig = registerAs('storage', () => {
   };
 });
 
+export const syncConfig = registerAs('sync', () => {
+  const appDataPath = resolve(process.env.APP_DATA_PATH ?? '/data');
+  return {
+    enabled: parseBooleanFlag(process.env.SYNC_ENABLED, false),
+    syncthingUrl: process.env.SYNCTHING_URL?.trim() || 'http://syncthing:8384',
+    syncthingApiKey: process.env.SYNCTHING_API_KEY?.trim() || '',
+    exportPath: process.env.SYNC_EXPORT_PATH?.trim() || join(appDataPath, 'sync'),
+  };
+});
+
 export const fileWriteConfig = registerAs('fileWrite', () => ({
   debounceMs: parsePositiveInteger(process.env.FILE_WRITE_DEBOUNCE_MS, 3_000),
   maxConcurrentWrites: parsePositiveInteger(process.env.FILE_WRITE_MAX_CONCURRENT_WRITES, 2),
