@@ -338,7 +338,7 @@ function syncCompletion(targetId: number): number | null {
                 class="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                 :class="{ 'animate-spin': reconcilingTarget === target.id }"
                 :disabled="reconcilingTarget === target.id"
-                title="Trigger file reconciliation"
+                title="Sync now — push collection changes to the device immediately"
                 @click="handleReconcile(target.id)"
               >
                 <RefreshCw :size="14" />

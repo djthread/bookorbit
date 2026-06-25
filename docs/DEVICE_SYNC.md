@@ -185,9 +185,9 @@ BookOrbit will create and manage a send-only folder in your Syncthing instance. 
 
 ## Triggering a manual sync
 
-From **Settings → Integrations → Device Sync**, click the **refresh icon** on any sync target to trigger an immediate file reconciliation (re-scan your collections, update the export folder, and tell Syncthing to push).
+BookOrbit syncs automatically: collection changes reconcile within seconds, and a periodic safety sweep catches anything else. To push immediately instead of waiting, go to **Settings → Integrations → Device Sync** and click the **Sync now** button on any sync target (re-scans your collections, updates the export folder, and tells Syncthing to push).
 
-This is useful after adding books to a collection or if you believe the on-device state drifted.
+This is useful right after editing a collection or book metadata, or if you believe the on-device state drifted.
 
 ---
 
