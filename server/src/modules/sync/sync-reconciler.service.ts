@@ -4,7 +4,14 @@ import { copyFile, link, mkdir, readdir, rm, stat } from 'fs/promises';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { basename, dirname, extname, join, relative, resolve } from 'path';
 
-import { DEFAULT_SYNC_LAYOUT, resolveUploadPath, SYNC_LAYOUT_PATTERNS, type SyncLayout, type SyncTarget } from '@bookorbit/types';
+import {
+  DEFAULT_SYNC_LAYOUT,
+  resolveUploadPath,
+  SYNC_LAYOUT_PATTERNS,
+  type SyncLayout,
+  type SyncStorageMode,
+  type SyncTarget,
+} from '@bookorbit/types';
 import { DB } from '../../db';
 import * as schema from '../../db/schema';
 import { authors, bookAuthors, bookFiles, bookMetadata, books, collectionBooks, syncTargetCollections, syncTargets } from '../../db/schema';
@@ -85,9 +92,16 @@ export class SyncReconcilerService {
 
       await this.pruneEmptyDirs(target.exportPath);
       await this.syncthing.rescan(target.syncthingFolderId);
-      await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true });
+      // Detect the storage mode from the filesystem relationship between each
+      // source file and the export dir, not from what was transferred this run:
+      // an already-synced target materializes nothing, but we still want a mode.
+      // `undefined` (empty target / sources all missing) keeps the prior value.
+      const storageMode = await this.detectStorageMode(target.exportPath, files);
+      await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
 
-      this.logger.log(`[${event}] [end] targetId=${target.id} linked=${linked} copied=${copied} pruned=${pruned}`);
+      this.logger.log(
+        `[${event}] [end] targetId=${target.id} linked=${linked} copied=${copied} pruned=${pruned}${storageMode ? ` storageMode=${storageMode}` : ''}`,
+      );
     } catch (err) {
       const errorMessage = sanitizeLogValue(err instanceof Error ? err.message : String(err));
       this.logger.error(`[${event}] [fail] targetId=${target.id} error="${errorMessage}"`);
@@ -241,6 +255,34 @@ export class SyncReconcilerService {
     }
   }
 
+  /**
+   * Determines whether files in the export dir are hardlinked or copied by
+   * comparing the filesystem device of each source file against the export
+   * dir's device — same device means a hardlink succeeds (matching the EXDEV
+   * fallback in {@link linkOrCopy}), a different device forces a copy. Returns
+   * `undefined` when there is nothing to materialize so the caller keeps the
+   * previously recorded mode instead of clearing it.
+   */
+  private async detectStorageMode(exportPath: string, files: BookFile[]): Promise<SyncStorageMode | undefined> {
+    if (files.length === 0) return undefined;
+    const exportDev = await stat(exportPath)
+      .then((st) => st.dev)
+      .catch(() => null);
+    if (exportDev === null) return undefined;
+
+    let sawLink = false;
+    let sawCopy = false;
+    for (const file of files) {
+      const st = await stat(file.absolutePath).catch(() => null);
+      if (!st) continue;
+      if (st.dev === exportDev) sawLink = true;
+      else sawCopy = true;
+      if (sawLink && sawCopy) return 'mixed';
+    }
+    if (!sawLink && !sawCopy) return undefined;
+    return sawLink ? 'hardlink' : 'copy';
+  }
+
   private async pruneEmptyDirs(dir: string): Promise<void> {
     let entries: import('fs').Dirent[];
     try {
@@ -259,7 +301,11 @@ export class SyncReconcilerService {
     }
   }
 
-  private async updateStatus(id: number, status: string, opts?: { lastSyncedAt?: Date; lastError?: string; clearError?: boolean }): Promise<void> {
+  private async updateStatus(
+    id: number,
+    status: string,
+    opts?: { lastSyncedAt?: Date; lastError?: string; clearError?: boolean; storageMode?: SyncStorageMode },
+  ): Promise<void> {
     await this.db
       .update(syncTargets)
       .set({
@@ -267,6 +313,7 @@ export class SyncReconcilerService {
         ...(opts?.lastSyncedAt ? { lastSyncedAt: opts.lastSyncedAt } : {}),
         ...(opts?.lastError !== undefined ? { lastError: opts.lastError } : {}),
         ...(opts?.clearError ? { lastError: null } : {}),
+        ...(opts?.storageMode ? { storageMode: opts.storageMode } : {}),
         updatedAt: new Date(),
       })
       .where(eq(syncTargets.id, id));

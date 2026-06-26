@@ -22,6 +22,7 @@ function makeRawTarget(overrides?: Record<string, unknown>) {
     deviceId: null,
     mode: 'sendonly',
     layout: 'flat',
+    storageMode: null,
     status: 'idle',
     lastCompletion: null,
     lastSyncedAt: null,
@@ -132,7 +133,7 @@ describe('SyncRepository', () => {
     it('returns mapped target with collectionIds', async () => {
       const db = makeDb();
 
-      const raw = makeRawTarget({ lastSyncedAt: new Date('2026-06-01T12:00:00Z') });
+      const raw = makeRawTarget({ lastSyncedAt: new Date('2026-06-01T12:00:00Z'), storageMode: 'hardlink' });
 
       const limit = vi.fn().mockResolvedValue([raw]);
       const where = vi.fn().mockReturnValue({ limit });
@@ -148,6 +149,7 @@ describe('SyncRepository', () => {
 
       expect(result).not.toBeNull();
       expect(result!.collectionIds).toEqual([3]);
+      expect(result!.storageMode).toBe('hardlink');
       expect(result!.lastSyncedAt).toBe('2026-06-01T12:00:00.000Z');
       expect(result!.createdAt).toBe('2026-01-01T00:00:00.000Z');
     });

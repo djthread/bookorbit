@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, Plus, RefreshCw, Server, Smartphone, Trash2, Wifi } from '@lucide/vue'
+import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, HardDrive, Link2, Plus, RefreshCw, Server, Smartphone, Trash2, Wifi } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import QRCode from 'qrcode'
 import SettingsPageHeader from './SettingsPageHeader.vue'
@@ -212,6 +212,21 @@ function statusLabel(status: string): string {
   return ({ idle: 'Idle', reconciling: 'Reconciling', syncing: 'Syncing', error: 'Error' } as Record<string, string>)[status] ?? status
 }
 
+const STORAGE_MODE_INFO: Record<NonNullable<SyncTarget['storageMode']>, { label: string; hint: string }> = {
+  hardlink: {
+    label: 'Hardlinked',
+    hint: 'The export folder shares a filesystem with your library, so synced files use hardlinks — near-zero extra storage.',
+  },
+  copy: {
+    label: 'Copied',
+    hint: 'The export folder is on a different filesystem from your library, so each synced book is copied and uses extra storage equal to its file size. Keep both volumes on the same filesystem to use hardlinks instead.',
+  },
+  mixed: {
+    label: 'Mixed',
+    hint: 'Some books were hardlinked and some were copied — your library spans multiple filesystems relative to the export folder.',
+  },
+}
+
 function collectionNames(ids: number[]): string {
   const names = ids.map((id) => collections.value.find((c) => c.id === id)?.name).filter(Boolean)
   return names.length > 0 ? names.join(', ') : 'No collections'
@@ -334,6 +349,18 @@ function deviceConnected(targetId: number): boolean {
                 >
                   {{ statusLabel(target.status) }}
                 </span>
+                <span
+                  v-if="target.storageMode"
+                  class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+                  :class="target.storageMode === 'hardlink'
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                    : 'bg-muted text-muted-foreground'"
+                  :title="STORAGE_MODE_INFO[target.storageMode].hint"
+                >
+                  <Link2 v-if="target.storageMode === 'hardlink'" :size="10" />
+                  <HardDrive v-else :size="10" />
+                  {{ STORAGE_MODE_INFO[target.storageMode].label }}
+                </span>
                 <span class="text-xs text-muted-foreground truncate">{{ collectionNames(target.collectionIds) }}</span>
               </div>
             </div>
@@ -411,6 +438,19 @@ function deviceConnected(targetId: number): boolean {
                   {{ LAYOUT_OPTIONS.find((o) => o.value === target.layout)?.hint }}
                   Changing this re-links and re-syncs all files to the device.
                 </p>
+              </div>
+
+              <!-- Storage mode -->
+              <div v-if="target.storageMode">
+                <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2.5">Storage</p>
+                <div class="flex items-start gap-2.5 px-3 py-2.5 rounded-md border border-border bg-muted/30">
+                  <Link2 v-if="target.storageMode === 'hardlink'" :size="14" class="text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                  <HardDrive v-else :size="14" class="text-muted-foreground shrink-0 mt-0.5" />
+                  <div class="min-w-0">
+                    <p class="text-xs font-medium text-foreground">{{ STORAGE_MODE_INFO[target.storageMode].label }}</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">{{ STORAGE_MODE_INFO[target.storageMode].hint }}</p>
+                  </div>
+                </div>
               </div>
 
               <!-- Our Syncthing device ID + QR -->

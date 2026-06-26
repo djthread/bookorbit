@@ -2,7 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { and, eq, inArray } from 'drizzle-orm';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 
-import { DEFAULT_SYNC_LAYOUT, type SyncLayout, type SyncTarget, type SyncTargetMode, type SyncTargetStatus } from '@bookorbit/types';
+import {
+  DEFAULT_SYNC_LAYOUT,
+  type SyncLayout,
+  type SyncStorageMode,
+  type SyncTarget,
+  type SyncTargetMode,
+  type SyncTargetStatus,
+} from '@bookorbit/types';
 import { DB } from '../../db';
 import * as schema from '../../db/schema';
 import { syncTargetCollections, syncTargets } from '../../db/schema';
@@ -98,6 +105,7 @@ export class SyncRepository {
       deviceId: row.deviceId,
       mode: (row.mode as SyncTargetMode) ?? 'sendonly',
       layout: (row.layout as SyncLayout) ?? DEFAULT_SYNC_LAYOUT,
+      storageMode: (row.storageMode as SyncStorageMode | null) ?? null,
       status: (row.status as SyncTargetStatus) ?? 'idle',
       lastCompletion: row.lastCompletion,
       lastSyncedAt: row.lastSyncedAt?.toISOString() ?? null,

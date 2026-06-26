@@ -32,6 +32,7 @@ function makeTarget(overrides?: Record<string, unknown>) {
     deviceId: null,
     mode: 'sendonly' as const,
     layout: 'flat' as const,
+    storageMode: null,
     status: 'idle' as const,
     lastCompletion: null,
     lastSyncedAt: null,
