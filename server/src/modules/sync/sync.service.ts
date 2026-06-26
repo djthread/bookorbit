@@ -106,10 +106,7 @@ export class SyncService {
     const target = await this.syncRepo.findById(row.id);
     if (!target) throw new NotFoundException(TARGET_NOT_FOUND);
 
-    this.syncthing.ensureFolder(target).catch((err: unknown) => {
-      const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
-      this.logger.error(`[sync] ensureFolder failed targetId=${target.id} error="${msg}"`);
-    });
+    await this.syncthing.ensureFolder(target);
 
     this.triggerReconcile(target);
 
