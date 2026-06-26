@@ -1,7 +1,7 @@
 import { ConflictException, ForbiddenException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 
 import type { RequestUser } from '../../common/types/request-user';
-import { SyncService } from './sync.service';
+import { SyncthingService } from './syncthing.service';
 
 function makeUser(overrides?: Partial<RequestUser>): RequestUser {
   return {
@@ -76,12 +76,12 @@ function makeService(syncEnabled = true) {
     }),
   };
 
-  const service = new SyncService(syncRepo as never, syncthing as never, reconciler as never, config as never);
+  const service = new SyncthingService(syncRepo as never, syncthing as never, reconciler as never, config as never);
 
   return { service, syncRepo, syncthing, reconciler };
 }
 
-describe('SyncService', () => {
+describe('SyncthingService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

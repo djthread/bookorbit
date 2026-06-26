@@ -76,7 +76,7 @@ import { SharedReadingInsightsModule } from './modules/shared-reading-insights/s
 import { BookDuplicatesModule } from './modules/book-duplicates/book-duplicates.module';
 import { MaintenanceModule } from './modules/maintenance/maintenance.module';
 import { BookMoveModule } from './modules/book-move/book-move.module';
-import { SyncModule } from './modules/sync/sync.module';
+import { SyncthingModule } from './modules/syncthing/syncthing.module';
 
 @Module({
   imports: [
@@ -160,7 +160,7 @@ import { SyncModule } from './modules/sync/sync.module';
     MaintenanceModule,
     BookMoveModule,
     BrowseCountsModule,
-    SyncModule,
+    SyncthingModule,
   ],
   providers: [
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },

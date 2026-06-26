@@ -5,7 +5,7 @@ import { toast } from 'vue-sonner'
 import QRCode from 'qrcode'
 import SettingsPageHeader from './SettingsPageHeader.vue'
 import { copyToClipboard } from '@/lib/clipboard'
-import { useSyncTargets } from '@/features/sync/composables/useSyncTargets'
+import { useSyncTargets } from '@/features/syncthing/composables/useSyncTargets'
 import { useCollections } from '@/features/collection/composables/useCollections'
 import { api } from '@/lib/api'
 import type { SyncTarget, SyncTargetProgress, SyncOverview, SyncLayout } from '@bookorbit/types'
@@ -49,7 +49,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 
 async function fetchOverview(): Promise<void> {
   try {
-    const res = await api('/api/v1/sync/overview')
+    const res = await api('/api/v1/syncthing/overview')
     if (!res.ok) return
     const data: SyncOverview = await res.json()
     overview.value = data
@@ -67,7 +67,7 @@ async function fetchOverview(): Promise<void> {
 
 async function fetchStatusFor(targetId: number): Promise<void> {
   try {
-    const res = await api(`/api/v1/sync/targets/${targetId}/status`)
+    const res = await api(`/api/v1/syncthing/targets/${targetId}/status`)
     if (!res.ok) return
     const progress: SyncTargetProgress = await res.json()
     statusMap.value = { ...statusMap.value, [targetId]: progress }
@@ -255,7 +255,7 @@ function deviceConnected(targetId: number): boolean {
 </script>
 
 <template>
-  <SettingsPageHeader v-if="!props.embedded" title="Device Sync" subtitle="Push collections to KOReader devices automatically via Syncthing." />
+  <SettingsPageHeader v-if="!props.embedded" title="Syncthing" subtitle="Push collections to your devices automatically over Syncthing." />
 
   <div v-if="pageLoading || loading" class="text-sm text-muted-foreground">Loading...</div>
   <div v-else-if="pageError" class="text-sm text-destructive">{{ pageError }}</div>
@@ -324,7 +324,7 @@ function deviceConnected(targetId: number): boolean {
         </div>
         <p class="text-sm font-medium text-foreground">No sync targets yet</p>
         <p class="text-xs text-muted-foreground mt-1 max-w-[280px] mx-auto">
-          Create a sync target to automatically deliver your collection to a KOReader device via Syncthing.
+          Create a sync target to automatically deliver your collection to a device via Syncthing.
         </p>
       </div>
 
@@ -475,7 +475,7 @@ function deviceConnected(targetId: number): boolean {
                         Copy
                       </button>
                     </div>
-                    <p class="text-xs text-muted-foreground">Add this device ID in the Syncthing plugin on your KOReader device.</p>
+                    <p class="text-xs text-muted-foreground">Add this device ID in the Syncthing app on your device (see setup steps below).</p>
                   </div>
                   <div v-if="qrCodeCache[overview!.ourDeviceId]" class="shrink-0">
                     <img

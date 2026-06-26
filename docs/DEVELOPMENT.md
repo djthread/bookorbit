@@ -224,19 +224,19 @@ pnpm --filter @bookorbit/types dev
 
 These are the variables you are most likely to need during development. See `server/.env.example` for the full list with comments.
 
-| Variable              | Purpose                               | Default (dev)                                             |
-| --------------------- | ------------------------------------- | --------------------------------------------------------- |
-| `DATABASE_URL`        | PostgreSQL connection string          | `postgres://bookorbit:bookorbit@localhost:5432/bookorbit` |
-| `PORT`                | Server listen port                    | `3000`                                                    |
-| `NODE_ENV`            | Runtime mode                          | `development`                                             |
-| `JWT_SECRET`          | Signing key for auth tokens           | `change-me-in-production`                                 |
-| `APP_DATA_PATH`       | Storage for covers, avatars, cache    | `../local/data`                                           |
-| `LIBRARY_BROWSE_ROOT` | Library folder picker root            | `/`                                                       |
-| `APP_URL`             | Base URL for email links              | `http://localhost:5173`                                   |
-| `SYNC_ENABLED`        | Enable Device Sync (Syncthing) module | `false`                                                   |
-| `SYNCTHING_API_KEY`   | API key for the Syncthing REST API    | _(empty, required when `SYNC_ENABLED=true`)_              |
-| `SYNCTHING_URL`       | Syncthing REST base URL               | `http://syncthing:8384`                                   |
-| `SWAGGER_ENABLED`     | Serve Swagger UI and OpenAPI JSON     | `false`                                                   |
+| Variable              | Purpose                                 | Default (dev)                                             |
+| --------------------- | --------------------------------------- | --------------------------------------------------------- |
+| `DATABASE_URL`        | PostgreSQL connection string            | `postgres://bookorbit:bookorbit@localhost:5432/bookorbit` |
+| `PORT`                | Server listen port                      | `3000`                                                    |
+| `NODE_ENV`            | Runtime mode                            | `development`                                             |
+| `JWT_SECRET`          | Signing key for auth tokens             | `change-me-in-production`                                 |
+| `APP_DATA_PATH`       | Storage for covers, avatars, cache      | `../local/data`                                           |
+| `LIBRARY_BROWSE_ROOT` | Library folder picker root              | `/`                                                       |
+| `APP_URL`             | Base URL for email links                | `http://localhost:5173`                                   |
+| `SYNC_ENABLED`        | Enable the Syncthing device-sync module | `false`                                                   |
+| `SYNCTHING_API_KEY`   | API key for the Syncthing REST API      | _(empty, required when `SYNC_ENABLED=true`)_              |
+| `SYNCTHING_URL`       | Syncthing REST base URL                 | `http://syncthing:8384`                                   |
+| `SWAGGER_ENABLED`     | Serve Swagger UI and OpenAPI JSON       | `false`                                                   |
 
 ---
 

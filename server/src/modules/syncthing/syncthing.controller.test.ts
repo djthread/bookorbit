@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 
 import type { RequestUser } from '../../common/types/request-user';
-import { SyncController } from './sync.controller';
+import { SyncthingController } from './syncthing.controller';
 
 const USER: RequestUser = {
   id: 1,
@@ -30,11 +30,11 @@ function makeController() {
     acceptDevice: vi.fn(),
     reconcile: vi.fn(),
   };
-  const controller = new SyncController(service as never);
+  const controller = new SyncthingController(service as never);
   return { controller, service };
 }
 
-describe('SyncController', () => {
+describe('SyncthingController', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

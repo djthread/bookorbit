@@ -5,11 +5,11 @@ import type { RequestUser } from '../../common/types/request-user';
 import { AcceptDeviceDto } from './dto/accept-device.dto';
 import { CreateSyncTargetDto } from './dto/create-sync-target.dto';
 import { UpdateSyncTargetDto } from './dto/update-sync-target.dto';
-import { SyncService } from './sync.service';
+import { SyncthingService } from './syncthing.service';
 
-@Controller('sync')
-export class SyncController {
-  constructor(private readonly syncService: SyncService) {}
+@Controller('syncthing')
+export class SyncthingController {
+  constructor(private readonly syncService: SyncthingService) {}
 
   @Get('overview')
   getOverview() {

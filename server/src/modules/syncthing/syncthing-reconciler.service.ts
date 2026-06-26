@@ -37,8 +37,8 @@ interface PatternMeta {
 }
 
 @Injectable()
-export class SyncReconcilerService {
-  private readonly logger = new Logger(SyncReconcilerService.name);
+export class SyncthingReconcilerService {
+  private readonly logger = new Logger(SyncthingReconcilerService.name);
   private readonly reconcileInFlight = new Set<number>();
 
   constructor(

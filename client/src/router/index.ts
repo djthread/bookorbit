@@ -127,7 +127,7 @@ function resolveLegacyIntegrationRoute(tab: unknown): string | null {
     case 'koreader':
       return 'settings-koreader'
     case 'sync':
-      return 'settings-sync'
+      return 'settings-syncthing'
     case 'kobo':
       return 'settings-kobo'
     default:
@@ -370,10 +370,10 @@ export const routes: RouteRecordRaw[] = [
             meta: { title: () => t('titles.opds') },
           },
           {
-            path: 'sync',
-            name: 'settings-sync',
-            component: () => import('@/features/settings/SyncSettings.vue'),
-            meta: { maxWidth: 'max-w-4xl', title: 'Device Sync' },
+            path: 'syncthing',
+            name: 'settings-syncthing',
+            component: () => import('@/features/settings/SyncthingSettings.vue'),
+            meta: { maxWidth: 'max-w-4xl', title: 'Syncthing' },
           },
           {
             path: 'email',
