@@ -62,6 +62,29 @@ pnpm db:migrate                     # apply pending migrations
 pnpm db:studio                      # open Drizzle Studio (DB browser)
 ```
 
+### Runtime migrations
+
+At container start `entrypoint.sh` runs `node dist/scripts/migrate.js` (source:
+`src/scripts/migrate.ts`). This is a custom per-migration runner — **not** drizzle-orm's stock
+migrator. It tracks applied migrations by **content hash** in `drizzle.__drizzle_migrations`
+(the same table the stock migrator uses, additively widened with a nullable `tag` column) and
+applies each journal migration whose hash is missing, in journal order, **independent of the
+`when` timestamps**.
+
+The stock migrator only keeps a single high-water mark and skips any migration whose `when`
+predates the newest applied one. That silently drops upstream migrations whenever this project is
+carried as a fork, so we replaced it. The hash-based table format is backward compatible: existing
+databases are recognised with no manual seeding, and reverting to the stock migrator stays
+possible. See `PER_MIGRATION_RUNNER_PLAN.md` for the full rationale.
+
+**Never edit an already-applied migration file.** Editing it changes its hash; the runner then
+sees a "new" migration and (because the `tag` already exists with a different hash) logs a loud
+drift warning and skips it. Always generate a new migration with `pnpm db:generate` instead.
+
+The runner is covered by the `migration-runner` e2e suite (`pnpm run e2e:run -- migration-runner`),
+which exercises fresh installs, partial catch-up, legacy stock-format rows, and the out-of-order
+`when` regression against a real Postgres.
+
 ## Testing
 
 ```bash
