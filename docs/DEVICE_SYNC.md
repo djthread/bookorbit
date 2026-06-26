@@ -274,7 +274,30 @@ There are two common sources:
 
 ## Storage notes
 
-- **Hardlinks (same filesystem):** When the export directory and your book library are on the same Docker volume (`/books` and `/data/app/sync` both on the same host filesystem), BookOrbit uses hardlinks. The files share disk blocks — near-zero extra storage.
-- **Copies (cross-filesystem):** If the volumes are on different physical drives or filesystems, BookOrbit falls back to copying. Each synced book occupies additional space equal to its file size.
+When BookOrbit exports a book it tries to **hardlink** it into the sync folder (the file shares disk blocks with the library copy — near-zero extra storage) and falls back to **copying** when a hardlink isn't possible (each synced book then occupies extra space equal to its file size).
 
-Each sync target shows which mode it's using: a **Hardlinked** or **Copied** badge appears next to the target's status in **Settings → Integrations → Device Sync**, and the expanded panel explains the trade-off. The mode is detected on each reconcile (collection change, **Sync now**, or the periodic sweep), so it appears after the target's first sync. A **Mixed** badge means your library spans multiple filesystems relative to the export directory (some books are hardlinked, others copied). To benefit from hardlinks everywhere, keep your books volume and app-data volume on the same underlying filesystem.
+- **Hardlinks:** used when the library and the export directory are on the **same mount point** inside the container.
+- **Copies:** used otherwise — the kernel returns `EXDEV` ("cross-device link") and BookOrbit copies instead.
+
+> **Same filesystem is not enough — it must be the same mount.** `link(2)` fails across different mount points *even when both point at the same physical filesystem*. In the default `docker-compose.yml`, your library (`/books`) and the export directory (under `/data`) are **two separate bind mounts**, so hardlinks never succeed even if `./books` and `./data/app` live on the same XFS/ext4 volume on the host. This is a hard kernel limitation, not a BookOrbit choice.
+
+**To get hardlinks, put the library and the export directory under a single mount.** The simplest way is to keep the export directory *inside* the books mount:
+
+1. In `.env`, point the export path at a hidden subdirectory of the books mount:
+
+   ```dotenv
+   SYNC_EXPORT_PATH=/books/.bookorbit-sync
+   ```
+
+2. Give the Syncthing sidecar the same books mount so it can serve that directory. In `docker-compose.yml` (or a `docker-compose.override.yml`), add the books volume to the `syncthing` service so its path matches the app's:
+
+   ```yaml
+   services:
+     syncthing:
+       volumes:
+         - ${BOOKS_HOST_PATH:-./books}:/books
+   ```
+
+3. Recreate the containers (`docker compose up -d`) and **recreate your sync targets** (the export path is fixed per target when it's created, so existing targets keep their old copy-based path). New targets will hardlink.
+
+Each sync target shows which mode it's actually using: a **Hardlinked** or **Copied** badge appears next to the target's status in **Settings → Integrations → Device Sync**, and the expanded panel explains the trade-off. The mode is verified on each reconcile (collection change, **Sync now**, or the periodic sweep) by attempting a real hardlink in the export directory, so it reflects what genuinely happens — not just whether the volumes happen to share a filesystem. A **Mixed** badge means your library spans multiple mounts relative to the export directory (some books hardlink, others copy).

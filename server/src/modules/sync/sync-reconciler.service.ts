@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { asc, eq, inArray } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
 import { copyFile, link, mkdir, readdir, rm, stat } from 'fs/promises';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { basename, dirname, extname, join, relative, resolve } from 'path';
@@ -91,12 +92,12 @@ export class SyncReconcilerService {
       }
 
       await this.pruneEmptyDirs(target.exportPath);
-      await this.syncthing.rescan(target.syncthingFolderId);
-      // Detect the storage mode from the filesystem relationship between each
-      // source file and the export dir, not from what was transferred this run:
-      // an already-synced target materializes nothing, but we still want a mode.
+      // Detect the storage mode independently of what was transferred this run —
+      // an already-synced target materializes nothing but we still want a mode.
+      // Done before rescan so the throwaway probe file is never seen by Syncthing.
       // `undefined` (empty target / sources all missing) keeps the prior value.
       const storageMode = await this.detectStorageMode(target.exportPath, files);
+      await this.syncthing.rescan(target.syncthingFolderId);
       await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
 
       this.logger.log(
@@ -256,31 +257,54 @@ export class SyncReconcilerService {
   }
 
   /**
-   * Determines whether files in the export dir are hardlinked or copied by
-   * comparing the filesystem device of each source file against the export
-   * dir's device — same device means a hardlink succeeds (matching the EXDEV
-   * fallback in {@link linkOrCopy}), a different device forces a copy. Returns
-   * `undefined` when there is nothing to materialize so the caller keeps the
-   * previously recorded mode instead of clearing it.
+   * Determines whether files land in the export dir as hardlinks or copies.
+   *
+   * Comparing `st.dev` is NOT enough: `link(2)` fails with `EXDEV` across
+   * different mount points even when both sit on the same filesystem (the
+   * common Docker case — `/books` and the export dir are separate bind mounts).
+   * So we ground-truth it by attempting a throwaway hardlink from a real source
+   * file into the export dir, exactly as {@link linkOrCopy} would. To bound the
+   * cost while still catching a library that spans multiple filesystems, we
+   * probe one representative source per distinct `st.dev`.
+   *
+   * Returns `undefined` when there is nothing to probe (empty target / all
+   * sources missing) so the caller keeps the previously recorded mode.
    */
   private async detectStorageMode(exportPath: string, files: BookFile[]): Promise<SyncStorageMode | undefined> {
     if (files.length === 0) return undefined;
-    const exportDev = await stat(exportPath)
-      .then((st) => st.dev)
-      .catch(() => null);
-    if (exportDev === null) return undefined;
 
-    let sawLink = false;
-    let sawCopy = false;
+    const repBySrcDev = new Map<number, string>();
     for (const file of files) {
       const st = await stat(file.absolutePath).catch(() => null);
       if (!st) continue;
-      if (st.dev === exportDev) sawLink = true;
-      else sawCopy = true;
+      if (!repBySrcDev.has(st.dev)) repBySrcDev.set(st.dev, file.absolutePath);
+    }
+    if (repBySrcDev.size === 0) return undefined;
+
+    let sawLink = false;
+    let sawCopy = false;
+    for (const src of repBySrcDev.values()) {
+      const result = await this.probeLink(src, exportPath);
+      if (result === 'link') sawLink = true;
+      else if (result === 'copy') sawCopy = true;
       if (sawLink && sawCopy) return 'mixed';
     }
     if (!sawLink && !sawCopy) return undefined;
     return sawLink ? 'hardlink' : 'copy';
+  }
+
+  /** Hardlinks `src` to a throwaway name in `exportPath` to see whether linking works there, then removes it. */
+  private async probeLink(src: string, exportPath: string): Promise<'link' | 'copy' | null> {
+    const dest = join(exportPath, `.bookorbit-linkprobe-${randomUUID()}`);
+    try {
+      await link(src, dest);
+      return 'link';
+    } catch (err) {
+      if (isExdev(err)) return 'copy';
+      return null;
+    } finally {
+      await rm(dest, { force: true }).catch(() => {});
+    }
   }
 
   private async pruneEmptyDirs(dir: string): Promise<void> {
