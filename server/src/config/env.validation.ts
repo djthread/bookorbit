@@ -86,14 +86,7 @@ const envSchema = z.object({
     .string()
     .transform((val) => val.trim())
     .optional(),
-  SYNC_ENABLED: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .refine((val) => ['true', 'false', '1', '0', 'yes', 'no', 'on', 'off'].includes(val), {
-      message: 'SYNC_ENABLED must be one of true/false/1/0/yes/no/on/off',
-    })
-    .optional(),
+  SYNC_ENABLED: z.string().trim().toLowerCase().optional(),
   SYNCTHING_URL: z.string().url().optional(),
   SYNCTHING_API_KEY: z.string().optional(),
   SYNC_EXPORT_PATH: z.string().optional(),

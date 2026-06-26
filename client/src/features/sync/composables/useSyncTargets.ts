@@ -3,14 +3,14 @@ import { api } from '@/lib/api'
 import type { SyncTarget, CreateSyncTargetPayload, UpdateSyncTargetPayload } from '@bookorbit/types'
 
 const targets = ref<SyncTarget[]>([])
-const loaded = ref(false)
+let fetched = false
 const loading = ref(false)
 const error = ref<string | null>(null)
 let fetchPromise: Promise<void> | null = null
 
 export function useSyncTargets() {
   async function fetchTargets(): Promise<void> {
-    if (loaded.value) return
+    if (fetched) return
     if (fetchPromise) return fetchPromise
     loading.value = true
     error.value = null
@@ -18,7 +18,7 @@ export function useSyncTargets() {
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
         targets.value = await res.json()
-        loaded.value = true
+        fetched = true
       })
       .catch((e: unknown) => {
         error.value = e instanceof Error ? e.message : 'Failed to load sync targets'
@@ -28,11 +28,6 @@ export function useSyncTargets() {
         fetchPromise = null
       })
     return fetchPromise
-  }
-
-  async function refreshTargets(): Promise<void> {
-    loaded.value = false
-    return fetchTargets()
   }
 
   async function createTarget(payload: CreateSyncTargetPayload): Promise<SyncTarget> {
@@ -90,11 +85,9 @@ export function useSyncTargets() {
 
   return {
     targets,
-    loaded,
     loading,
     error,
     fetchTargets,
-    refreshTargets,
     createTarget,
     updateTarget,
     deleteTarget,

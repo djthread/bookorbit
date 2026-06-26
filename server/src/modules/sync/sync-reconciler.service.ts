@@ -47,7 +47,7 @@ export class SyncReconcilerService {
     private readonly syncthing: SyncthingClientService,
   ) {}
 
-  async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>): Promise<void> {
+  async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout' | 'storageMode'>): Promise<void> {
     const event = 'sync.reconcile';
 
     if (this.reconcileInFlight.has(target.id)) {
@@ -115,11 +115,16 @@ export class SyncReconcilerService {
         }
 
         await this.pruneEmptyDirs(target.exportPath);
-        // Detect the storage mode independently of what was transferred this run —
-        // an already-synced target materializes nothing but we still want a mode.
-        // Done before rescan so the throwaway probe file is never seen by Syncthing.
-        // `undefined` (empty target / sources all missing) keeps the prior value.
-        const storageMode = await this.detectStorageMode(target.exportPath, files);
+        // Fast path: derive mode from what was actually materialized this run.
+        // Slow path (probe): only when nothing was transferred AND mode is not yet
+        // recorded — covers the first sweep of an already-populated export dir.
+        // `undefined` keeps the prior DB value unchanged.
+        let storageMode: SyncStorageMode | undefined;
+        if (linked > 0 || copied > 0) {
+          storageMode = linked > 0 && copied > 0 ? 'mixed' : linked > 0 ? 'hardlink' : 'copy';
+        } else if (target.storageMode === null) {
+          storageMode = await this.detectStorageMode(target.exportPath, files);
+        }
         await this.syncthing.rescan(target.syncthingFolderId);
         await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
 
@@ -244,7 +249,7 @@ export class SyncReconcilerService {
   }
 
   private async walkDir(root: string, dir: string, results: string[]): Promise<void> {
-    let entries: Awaited<ReturnType<(path: string, opts: { withFileTypes: true }) => Promise<import('fs').Dirent[]>>>;
+    let entries: import('fs').Dirent[];
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
@@ -252,7 +257,7 @@ export class SyncReconcilerService {
     }
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
-      const full = join(dir, String(entry.name));
+      const full = join(dir, entry.name);
       const st = await stat(full).catch(() => null);
       if (!st || st.isSymbolicLink()) continue;
       if (st.isDirectory()) {
@@ -356,7 +361,7 @@ export class SyncReconcilerService {
     }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
-      const full = join(dir, String(entry.name));
+      const full = join(dir, entry.name);
       await this.pruneEmptyDirs(full);
       const remaining = await readdir(full).catch(() => null);
       if (remaining !== null && remaining.length === 0) {

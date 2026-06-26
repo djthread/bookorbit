@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { rm } from 'fs/promises';
 import { basename, join } from 'path';
 
-import { DEFAULT_SYNC_LAYOUT, type SyncTarget, type SyncTargetProgress } from '@bookorbit/types';
+import { DEFAULT_SYNC_LAYOUT, type SyncOverview, type SyncTarget, type SyncTargetProgress } from '@bookorbit/types';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
 import type { RequestUser } from '../../common/types/request-user';
 import { SyncRepository } from './sync.repository';
@@ -37,8 +37,8 @@ export class SyncService {
     private readonly reconciler: SyncReconcilerService,
     private readonly config: ConfigService,
   ) {
-    this.syncEnabled = this.config.get<boolean>('sync.enabled') ?? false;
-    this.configExportPath = this.config.get<string>('sync.exportPath') ?? join('/data', 'sync');
+    this.syncEnabled = this.config.get<boolean>('sync.enabled')!;
+    this.configExportPath = this.config.get<string>('sync.exportPath')!;
   }
 
   private assertEnabled(): void {
@@ -60,7 +60,7 @@ export class SyncService {
     return target;
   }
 
-  private triggerReconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>): void {
+  private triggerReconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout' | 'storageMode'>): void {
     this.reconciler.reconcile(target).catch((err: unknown) => {
       const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
       this.logger.error(`[sync] Background reconcile failed targetId=${target.id} error="${msg}"`);
@@ -173,12 +173,16 @@ export class SyncService {
     await this.syncRepo.delete(id, existing.userId);
   }
 
+  async getOverview(): Promise<SyncOverview> {
+    this.assertEnabled();
+    const [ourDeviceId, pendingDevices] = await Promise.all([this.syncthing.getDeviceId(), this.syncthing.listPendingDevices()]);
+    return { ourDeviceId, pendingDevices };
+  }
+
   async getStatus(id: number, user: RequestUser): Promise<SyncTargetProgress> {
     this.assertEnabled();
 
     const target = await this.findTargetForUserOrThrow(id, user);
-
-    const [ourDeviceId, pendingDevices] = await Promise.all([this.syncthing.getDeviceId(), this.syncthing.listPendingDevices()]);
 
     let lastCompletion = target.lastCompletion;
     let deviceConnected = false;
@@ -213,9 +217,7 @@ export class SyncService {
       lastCompletion,
       lastSyncedAt: target.lastSyncedAt,
       lastError: target.lastError,
-      ourDeviceId,
       deviceConnected,
-      pendingDevices,
     };
   }
 

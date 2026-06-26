@@ -8,7 +8,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { useSyncTargets } from '@/features/sync/composables/useSyncTargets'
 import { useCollections } from '@/features/collection/composables/useCollections'
 import { api } from '@/lib/api'
-import type { SyncTarget, SyncTargetProgress, PendingDevice, SyncLayout } from '@bookorbit/types'
+import type { SyncTarget, SyncTargetProgress, SyncOverview, SyncLayout } from '@bookorbit/types'
 
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 
@@ -26,6 +26,8 @@ const pageError = ref<string | null>(null)
 
 // Per-target status (keyed by target ID)
 const statusMap = ref<Record<number, SyncTargetProgress>>({})
+// Global Syncthing overview (device ID + pending devices)
+const overview = ref<SyncOverview | null>(null)
 // QR codes keyed by device ID string
 const qrCodeCache = ref<Record<string, string>>({})
 // Which targets are expanded (show pairing panel)
@@ -45,16 +47,16 @@ const updatingLayout = ref<number | null>(null)
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
-async function fetchStatusFor(targetId: number): Promise<void> {
+async function fetchOverview(): Promise<void> {
   try {
-    const res = await api(`/api/v1/sync/targets/${targetId}/status`)
+    const res = await api('/api/v1/sync/overview')
     if (!res.ok) return
-    const progress: SyncTargetProgress = await res.json()
-    statusMap.value = { ...statusMap.value, [targetId]: progress }
-    if (progress.ourDeviceId && !qrCodeCache.value[progress.ourDeviceId]) {
-      QRCode.toDataURL(progress.ourDeviceId, { errorCorrectionLevel: 'M', margin: 2 })
+    const data: SyncOverview = await res.json()
+    overview.value = data
+    if (data.ourDeviceId && !qrCodeCache.value[data.ourDeviceId]) {
+      QRCode.toDataURL(data.ourDeviceId, { errorCorrectionLevel: 'M', margin: 2 })
         .then((url) => {
-          qrCodeCache.value = { ...qrCodeCache.value, [progress.ourDeviceId]: url }
+          qrCodeCache.value = { ...qrCodeCache.value, [data.ourDeviceId]: url }
         })
         .catch(() => {})
     }
@@ -63,8 +65,19 @@ async function fetchStatusFor(targetId: number): Promise<void> {
   }
 }
 
+async function fetchStatusFor(targetId: number): Promise<void> {
+  try {
+    const res = await api(`/api/v1/sync/targets/${targetId}/status`)
+    if (!res.ok) return
+    const progress: SyncTargetProgress = await res.json()
+    statusMap.value = { ...statusMap.value, [targetId]: progress }
+  } catch {
+    // ignore polling errors silently
+  }
+}
+
 async function fetchAllStatuses(): Promise<void> {
-  await Promise.all(targets.value.map((t) => fetchStatusFor(t.id)))
+  await Promise.all([fetchOverview(), ...targets.value.map((t) => fetchStatusFor(t.id))])
 }
 
 onMounted(async () => {
@@ -230,14 +243,6 @@ const STORAGE_MODE_INFO: Record<NonNullable<SyncTarget['storageMode']>, { label:
 function collectionNames(ids: number[]): string {
   const names = ids.map((id) => collections.value.find((c) => c.id === id)?.name).filter(Boolean)
   return names.length > 0 ? names.join(', ') : 'No collections'
-}
-
-function ourDeviceId(targetId: number): string | null {
-  return statusMap.value[targetId]?.ourDeviceId ?? null
-}
-
-function pendingDevices(targetId: number): PendingDevice[] {
-  return statusMap.value[targetId]?.pendingDevices ?? []
 }
 
 function syncCompletion(targetId: number): number | null {
@@ -453,18 +458,18 @@ function deviceConnected(targetId: number): boolean {
               </div>
 
               <!-- Our Syncthing device ID + QR -->
-              <div v-if="ourDeviceId(target.id)">
+              <div v-if="overview?.ourDeviceId">
                 <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2.5">BookOrbit Syncthing Device ID</p>
                 <div class="flex items-start gap-4">
                   <div class="flex-1 min-w-0 space-y-2">
                     <div class="flex items-center gap-2 px-3 py-2.5 rounded-md border border-border bg-muted/30">
                       <Server :size="14" class="text-muted-foreground shrink-0" />
                       <span class="flex-1 text-xs font-mono text-foreground select-all truncate min-w-0">
-                        {{ ourDeviceId(target.id) }}
+                        {{ overview.ourDeviceId }}
                       </span>
                       <button
                         class="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border border-border bg-background hover:bg-muted transition-colors shrink-0"
-                        @click="copyText(ourDeviceId(target.id)!, 'Device ID')"
+                        @click="copyText(overview!.ourDeviceId, 'Device ID')"
                       >
                         <Copy :size="11" />
                         Copy
@@ -472,9 +477,9 @@ function deviceConnected(targetId: number): boolean {
                     </div>
                     <p class="text-xs text-muted-foreground">Add this device ID in the Syncthing plugin on your KOReader device.</p>
                   </div>
-                  <div v-if="qrCodeCache[ourDeviceId(target.id)!]" class="shrink-0">
+                  <div v-if="qrCodeCache[overview!.ourDeviceId]" class="shrink-0">
                     <img
-                      :src="qrCodeCache[ourDeviceId(target.id)!]"
+                      :src="qrCodeCache[overview!.ourDeviceId]"
                       alt="QR code for Syncthing device ID"
                       class="w-24 h-24 rounded border border-border bg-white"
                     />
@@ -494,12 +499,12 @@ function deviceConnected(targetId: number): boolean {
               <!-- Pending devices (only while this target is unpaired; the
                    Syncthing pending list is global, so a stray device must not
                    be acceptable onto an already-paired target) -->
-              <div v-if="!target.deviceId && pendingDevices(target.id).length > 0">
+              <div v-if="!target.deviceId && (overview?.pendingDevices ?? []).length > 0">
                 <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">Pending Devices</p>
                 <p class="text-[11px] text-muted-foreground mb-2 -mt-1">Accept only the device you intend to pair with this target.</p>
                 <div class="space-y-2">
                   <div
-                    v-for="device in pendingDevices(target.id)"
+                    v-for="device in overview?.pendingDevices ?? []"
                     :key="device.deviceId"
                     class="flex items-center gap-3 px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/20"
                   >

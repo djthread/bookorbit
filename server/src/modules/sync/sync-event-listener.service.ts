@@ -9,7 +9,7 @@ import { SyncRepository } from './sync.repository';
 
 const RECONCILE_DEBOUNCE_MS = 3_000;
 
-type ReconcileTarget = Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>;
+type ReconcileTarget = Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout' | 'storageMode'>;
 
 /**
  * Reacts to collection membership changes by reconciling any sync target whose
@@ -31,7 +31,7 @@ export class SyncEventListenerService implements OnModuleInit, OnModuleDestroy {
     private readonly reconciler: SyncReconcilerService,
     config: ConfigService,
   ) {
-    this.enabled = config.get<boolean>('sync.enabled') ?? false;
+    this.enabled = config.get<boolean>('sync.enabled')!;
   }
 
   onModuleInit(): void {
