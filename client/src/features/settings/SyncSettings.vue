@@ -15,7 +15,7 @@ const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: fa
 const { targets, loading, error, fetchTargets, createTarget, updateTarget, deleteTarget, acceptDevice, reconcile } = useSyncTargets()
 
 const LAYOUT_OPTIONS: { value: SyncLayout; label: string; hint: string }[] = [
-  { value: 'flat', label: 'Flat — all books together', hint: 'One tap to open in KOReader. Best for the My Bookshelf plugin.' },
+  { value: 'flat', label: 'Flat — all books together', hint: 'All files are colocated in the root share folder.' },
   { value: 'series', label: 'By series', hint: 'Series get their own shelf; standalone books stay at the top level.' },
   { value: 'author', label: 'By author', hint: 'Author/Series/Title folders — mirrors KOReader’s native file tree.' },
 ]

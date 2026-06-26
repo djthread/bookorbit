@@ -16,8 +16,7 @@ export type SyncStorageMode = 'hardlink' | 'copy' | 'mixed';
 
 /**
  * On-device folder layout for exported files. Controls the relative path each
- * book file gets in the Syncthing export dir (and therefore how KOReader / the
- * "My Bookshelf" plugin groups them on the device).
+ * book file gets in the Syncthing export dir.
  */
 export type SyncLayout = 'flat' | 'series' | 'author';
 
