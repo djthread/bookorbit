@@ -1,6 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { asc, eq, inArray } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
 import { copyFile, link, mkdir, readdir, rm, stat } from 'fs/promises';
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { basename, dirname, extname, join, relative, resolve } from 'path';
@@ -82,8 +81,20 @@ export class SyncReconcilerService {
 
           if (existingPaths.has(relPath)) {
             try {
-              const stale = await this.isStale(file.absolutePath, destPath);
-              if (!stale) continue;
+              const [srcStat, destStat] = await Promise.all([stat(file.absolutePath).catch(() => null), stat(destPath).catch(() => null)]);
+              if (!this.isStale(srcStat, destStat)) {
+                // Already up to date. Classify what is actually on disk (hardlink
+                // iff src and dest share a device + inode) so the reported mode
+                // reflects every retained file, not just the ones we (re)write this
+                // run. Without this, a target whose books already exist as copies
+                // would be mislabeled "hardlink" the moment a single same-mount
+                // file (e.g. from the book-dock) happens to link successfully.
+                if (srcStat && destStat) {
+                  if (srcStat.dev === destStat.dev && srcStat.ino === destStat.ino) linked++;
+                  else copied++;
+                }
+                continue;
+              }
               await rm(destPath, { force: true });
             } catch (err) {
               const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
@@ -115,15 +126,15 @@ export class SyncReconcilerService {
         }
 
         await this.pruneEmptyDirs(target.exportPath);
-        // Fast path: derive mode from what was actually materialized this run.
-        // Slow path (probe): only when nothing was transferred AND mode is not yet
-        // recorded — covers the first sweep of an already-populated export dir.
-        // `undefined` keeps the prior DB value unchanged.
+        // Derive the mode from the actual on-disk state of every file this target
+        // should contain: `linked`/`copied` count both the files (re)materialized
+        // this run and the pre-existing files classified by inode above. A library
+        // that partly shares the export's mount (hardlinkable) and partly does not
+        // (forced to copy) reports `mixed`. `undefined` — nothing to classify, e.g.
+        // an empty target — keeps the prior DB value unchanged.
         let storageMode: SyncStorageMode | undefined;
         if (linked > 0 || copied > 0) {
           storageMode = linked > 0 && copied > 0 ? 'mixed' : linked > 0 ? 'hardlink' : 'copy';
-        } else if (target.storageMode === null) {
-          storageMode = await this.detectStorageMode(target.exportPath, files);
         }
         await this.syncthing.rescan(target.syncthingFolderId);
         await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
@@ -276,11 +287,7 @@ export class SyncReconcilerService {
     return abs;
   }
 
-  private async isStale(srcPath: string, destPath: string): Promise<boolean> {
-    const [srcStat, destStat] = await Promise.all([
-      stat(srcPath).catch(() => null),
-      stat(destPath).catch(() => null),
-    ]);
+  private isStale(srcStat: import('fs').Stats | null, destStat: import('fs').Stats | null): boolean {
     if (!srcStat) return false; // source gone; keep existing dest rather than delete-and-fail
     if (!destStat) return true;
     if (srcStat.size !== destStat.size) return true;
@@ -298,57 +305,6 @@ export class SyncReconcilerService {
       if (!isExdev(err)) throw err;
       await copyFile(src, dest);
       return 'copy';
-    }
-  }
-
-  /**
-   * Determines whether files land in the export dir as hardlinks or copies.
-   *
-   * Comparing `st.dev` is NOT enough: `link(2)` fails with `EXDEV` across
-   * different mount points even when both sit on the same filesystem (the
-   * common Docker case — `/books` and the export dir are separate bind mounts).
-   * So we ground-truth it by attempting a throwaway hardlink from a real source
-   * file into the export dir, exactly as {@link linkOrCopy} would. To bound the
-   * cost while still catching a library that spans multiple filesystems, we
-   * probe one representative source per distinct `st.dev`.
-   *
-   * Returns `undefined` when there is nothing to probe (empty target / all
-   * sources missing) so the caller keeps the previously recorded mode.
-   */
-  private async detectStorageMode(exportPath: string, files: BookFile[]): Promise<SyncStorageMode | undefined> {
-    if (files.length === 0) return undefined;
-
-    const repBySrcDev = new Map<number, string>();
-    for (const file of files) {
-      const st = await stat(file.absolutePath).catch(() => null);
-      if (!st) continue;
-      if (!repBySrcDev.has(st.dev)) repBySrcDev.set(st.dev, file.absolutePath);
-    }
-    if (repBySrcDev.size === 0) return undefined;
-
-    let sawLink = false;
-    let sawCopy = false;
-    for (const src of repBySrcDev.values()) {
-      const result = await this.probeLink(src, exportPath);
-      if (result === 'link') sawLink = true;
-      else if (result === 'copy') sawCopy = true;
-      if (sawLink && sawCopy) return 'mixed';
-    }
-    if (!sawLink && !sawCopy) return undefined;
-    return sawLink ? 'hardlink' : 'copy';
-  }
-
-  /** Hardlinks `src` to a throwaway name in `exportPath` to see whether linking works there, then removes it. */
-  private async probeLink(src: string, exportPath: string): Promise<'link' | 'copy' | null> {
-    const dest = join(exportPath, `.bookorbit-linkprobe-${randomUUID()}`);
-    try {
-      await link(src, dest);
-      return 'link';
-    } catch (err) {
-      if (isExdev(err)) return 'copy';
-      return null;
-    } finally {
-      await rm(dest, { force: true }).catch(() => {});
     }
   }
 
