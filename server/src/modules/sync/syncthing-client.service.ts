@@ -51,8 +51,8 @@ export class SyncthingClientService {
   private readonly apiKey: string;
 
   constructor(private readonly config: ConfigService) {
-    this.baseUrl = this.config.get<string>('sync.syncthingUrl') ?? 'http://syncthing:8384';
-    this.apiKey = this.config.get<string>('sync.syncthingApiKey') ?? '';
+    this.baseUrl = this.config.get<string>('sync.syncthingUrl')!;
+    this.apiKey = this.config.get<string>('sync.syncthingApiKey')!;
   }
 
   async getDeviceId(): Promise<string> {

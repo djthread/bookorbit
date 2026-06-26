@@ -296,18 +296,27 @@ describe('SyncService', () => {
     });
   });
 
-  describe('getStatus', () => {
-    it('returns status with device id and pending devices', async () => {
-      const { service, syncRepo, syncthing } = makeService();
-      syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz' }));
+  describe('getOverview', () => {
+    it('returns ourDeviceId and pendingDevices', async () => {
+      const { service, syncthing } = makeService();
       syncthing.getDeviceId.mockResolvedValue('our-device-id');
       syncthing.listPendingDevices.mockResolvedValue([{ deviceId: 'abc', name: 'Kobo', address: '192.168.1.2', seen: '2026-01-01T00:00:00Z' }]);
+
+      const result = await service.getOverview();
+
+      expect(result.ourDeviceId).toBe('our-device-id');
+      expect(result.pendingDevices).toHaveLength(1);
+    });
+  });
+
+  describe('getStatus', () => {
+    it('returns status with completion and connection state', async () => {
+      const { service, syncRepo, syncthing } = makeService();
+      syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz' }));
       syncthing.getCompletion.mockResolvedValue({ completion: 72.5 });
 
       const result = await service.getStatus(1, makeUser());
 
-      expect(result.ourDeviceId).toBe('our-device-id');
-      expect(result.pendingDevices).toHaveLength(1);
       expect(result.lastCompletion).toBe(73);
       expect(result.targetId).toBe(1);
     });
@@ -315,8 +324,6 @@ describe('SyncService', () => {
     it('skips completion fetch when target has no paired device', async () => {
       const { service, syncRepo, syncthing } = makeService();
       syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: null, lastCompletion: 50 }));
-      syncthing.getDeviceId.mockResolvedValue('our-device-id');
-      syncthing.listPendingDevices.mockResolvedValue([]);
 
       const result = await service.getStatus(1, makeUser());
 
@@ -327,8 +334,6 @@ describe('SyncService', () => {
     it('persists a fresh completion reading while the device is connected', async () => {
       const { service, syncRepo, syncthing } = makeService();
       syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz', lastCompletion: 40 }));
-      syncthing.getDeviceId.mockResolvedValue('our-device-id');
-      syncthing.listPendingDevices.mockResolvedValue([]);
       syncthing.getCompletion.mockResolvedValue({ completion: 100 });
       syncthing.isDeviceConnected.mockResolvedValue(true);
 
@@ -342,8 +347,6 @@ describe('SyncService', () => {
     it('keeps the stored completion when the device is offline', async () => {
       const { service, syncRepo, syncthing } = makeService();
       syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz', lastCompletion: 100 }));
-      syncthing.getDeviceId.mockResolvedValue('our-device-id');
-      syncthing.listPendingDevices.mockResolvedValue([]);
       // A sleeping Kobo: Syncthing reports 0 for the disconnected device.
       syncthing.getCompletion.mockResolvedValue({ completion: 0 });
       syncthing.isDeviceConnected.mockResolvedValue(false);
@@ -358,8 +361,6 @@ describe('SyncService', () => {
     it('returns stored completion when syncthing completion call fails', async () => {
       const { service, syncRepo, syncthing } = makeService();
       syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz', lastCompletion: 42 }));
-      syncthing.getDeviceId.mockResolvedValue('our-device-id');
-      syncthing.listPendingDevices.mockResolvedValue([]);
       syncthing.getCompletion.mockRejectedValue(new Error('Syncthing unreachable'));
 
       const result = await service.getStatus(1, makeUser());

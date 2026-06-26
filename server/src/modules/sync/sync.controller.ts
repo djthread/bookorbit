@@ -11,6 +11,11 @@ import { SyncService } from './sync.service';
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
+  @Get('overview')
+  getOverview() {
+    return this.syncService.getOverview();
+  }
+
   @Get('targets')
   findAll(@CurrentUser() user: RequestUser) {
     return this.syncService.findAll(user);

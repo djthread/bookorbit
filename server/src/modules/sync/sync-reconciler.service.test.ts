@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { MockedFunction } from 'vitest';
 import { link, copyFile, mkdir, readdir, rm, stat } from 'fs/promises';
 
-import type { SyncLayout } from '@bookorbit/types';
+import type { SyncLayout, SyncStorageMode } from '@bookorbit/types';
 
 import { SyncReconcilerService } from './sync-reconciler.service';
 import { SyncthingClientService } from './syncthing-client.service';
@@ -27,12 +27,15 @@ const mockReaddir = readdir as MockedFunction<typeof readdir>;
 const mockRm = rm as MockedFunction<typeof rm>;
 const mockStat = stat as MockedFunction<typeof stat>;
 
-function makeTarget(overrides: Partial<{ id: number; syncthingFolderId: string; exportPath: string; layout: SyncLayout }> = {}) {
+function makeTarget(
+  overrides: Partial<{ id: number; syncthingFolderId: string; exportPath: string; layout: SyncLayout; storageMode: SyncStorageMode | null }> = {},
+) {
   return {
     id: 1,
     syncthingFolderId: 'folder-abc',
     exportPath: '/data/sync/1',
     layout: 'author' as SyncLayout,
+    storageMode: null as SyncStorageMode | null,
     ...overrides,
   };
 }
@@ -292,10 +295,11 @@ describe('SyncReconcilerService', () => {
       const meta = new Map([[1, makeMeta(1)]]);
       const { service, updateStatus } = makeService({ files: [file], meta });
 
-      // The file already exists in the export dir, so nothing is transferred —
-      // only the throwaway probe link is created.
+      // File exists in the export dir and stats match → isStale returns false → nothing transferred.
+      // storageMode is null, so the probe runs to determine the mode.
       vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
-      mockSourceDevices({ '/books/neuromancer.epub': 42 });
+      const st = { dev: 42, size: 1024, mtimeMs: 1_000_000, ino: 99, isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
+      mockStat.mockResolvedValue(st as any);
       mockLinkProbe(() => 'ok');
 
       await service.reconcile(makeTarget());
@@ -311,13 +315,16 @@ describe('SyncReconcilerService', () => {
       const syncthing = makeSyncthing();
       const { service } = makeService({ files: [file], meta, syncthing });
 
+      // Already-synced: matching stats → not stale → nothing transferred → probe runs.
+      vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
+      const st = { dev: 42, size: 1024, mtimeMs: 1_000_000, ino: 99, isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
+      mockStat.mockResolvedValue(st as any);
+
       const probeDests: string[] = [];
       mockLink.mockImplementation(((_src: string, dest: string) => {
         if (String(dest).includes('linkprobe')) probeDests.push(String(dest));
         return Promise.resolve(undefined);
       }) as never);
-      mockReaddir.mockResolvedValue([]);
-      mockSourceDevices({ '/books/neuromancer.epub': 42 });
 
       await service.reconcile(makeTarget());
 
