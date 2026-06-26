@@ -40,6 +40,7 @@ interface PatternMeta {
 @Injectable()
 export class SyncReconcilerService {
   private readonly logger = new Logger(SyncReconcilerService.name);
+  private readonly reconcileInFlight = new Set<number>();
 
   constructor(
     @Inject(DB) private readonly db: Db,
@@ -48,66 +49,91 @@ export class SyncReconcilerService {
 
   async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout'>): Promise<void> {
     const event = 'sync.reconcile';
+
+    if (this.reconcileInFlight.has(target.id)) {
+      this.logger.log(`[${event}] [skip] targetId=${target.id} reason=already-in-flight`);
+      return;
+    }
+
+    this.reconcileInFlight.add(target.id);
     this.logger.log(`[${event}] [start] targetId=${target.id} layout=${target.layout}`);
     await this.updateStatus(target.id, 'reconciling');
 
     try {
-      const files = await this.resolveTargetFiles(target.id);
-      const metaByBookId = await this.resolvePatternMetadata(files.map((f) => f.bookId));
-      const desired = this.buildRelativePaths(files, metaByBookId, target.layout);
+      try {
+        const files = await this.resolveTargetFiles(target.id);
+        const metaByBookId = await this.resolvePatternMetadata(files.map((f) => f.bookId));
+        const desired = this.buildRelativePaths(files, metaByBookId, target.layout);
 
-      await mkdir(target.exportPath, { recursive: true });
+        await mkdir(target.exportPath, { recursive: true });
 
-      const existing = await this.scanExportDir(target.exportPath);
-      const desiredPaths = new Set(desired.values());
-      const existingPaths = new Set(existing);
+        const existing = await this.scanExportDir(target.exportPath);
+        const desiredPaths = new Set(desired.values());
+        const existingPaths = new Set(existing);
 
-      let linked = 0;
-      let copied = 0;
-      let pruned = 0;
+        let linked = 0;
+        let copied = 0;
+        let refreshed = 0;
+        let pruned = 0;
 
-      for (const [file, relPath] of desired) {
-        if (existingPaths.has(relPath)) continue;
-        const destPath = this.safeJoin(target.exportPath, relPath);
-        if (!destPath) continue;
-        await mkdir(dirname(destPath), { recursive: true });
-        try {
-          const result = await this.linkOrCopy(file.absolutePath, destPath);
-          if (result === 'link') linked++;
-          else copied++;
-        } catch (err) {
-          const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
-          this.logger.warn(`[${event}] [file_skip] targetId=${target.id} src="${sanitizeLogValue(file.absolutePath)}" error="${msg}"`);
-        }
-      }
-
-      for (const relPath of existing) {
-        if (!desiredPaths.has(relPath)) {
+        for (const [file, relPath] of desired) {
           const destPath = this.safeJoin(target.exportPath, relPath);
-          if (destPath) {
-            await rm(destPath, { force: true });
-            pruned++;
+          if (!destPath) continue;
+
+          if (existingPaths.has(relPath)) {
+            try {
+              const stale = await this.isStale(file.absolutePath, destPath);
+              if (!stale) continue;
+              await rm(destPath, { force: true });
+            } catch (err) {
+              const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
+              this.logger.warn(`[${event}] [file_skip] targetId=${target.id} src="${sanitizeLogValue(file.absolutePath)}" error="${msg}"`);
+              continue;
+            }
+            refreshed++;
+          }
+
+          await mkdir(dirname(destPath), { recursive: true });
+          try {
+            const result = await this.linkOrCopy(file.absolutePath, destPath);
+            if (result === 'link') linked++;
+            else copied++;
+          } catch (err) {
+            const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
+            this.logger.warn(`[${event}] [file_skip] targetId=${target.id} src="${sanitizeLogValue(file.absolutePath)}" error="${msg}"`);
           }
         }
+
+        for (const relPath of existing) {
+          if (!desiredPaths.has(relPath)) {
+            const destPath = this.safeJoin(target.exportPath, relPath);
+            if (destPath) {
+              await rm(destPath, { force: true });
+              pruned++;
+            }
+          }
+        }
+
+        await this.pruneEmptyDirs(target.exportPath);
+        // Detect the storage mode independently of what was transferred this run —
+        // an already-synced target materializes nothing but we still want a mode.
+        // Done before rescan so the throwaway probe file is never seen by Syncthing.
+        // `undefined` (empty target / sources all missing) keeps the prior value.
+        const storageMode = await this.detectStorageMode(target.exportPath, files);
+        await this.syncthing.rescan(target.syncthingFolderId);
+        await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
+
+        this.logger.log(
+          `[${event}] [end] targetId=${target.id} linked=${linked} copied=${copied} refreshed=${refreshed} pruned=${pruned}${storageMode ? ` storageMode=${storageMode}` : ''}`,
+        );
+      } catch (err) {
+        const errorMessage = sanitizeLogValue(err instanceof Error ? err.message : String(err));
+        this.logger.error(`[${event}] [fail] targetId=${target.id} error="${errorMessage}"`);
+        await this.updateStatus(target.id, 'error', { lastError: errorMessage });
+        throw err;
       }
-
-      await this.pruneEmptyDirs(target.exportPath);
-      // Detect the storage mode independently of what was transferred this run —
-      // an already-synced target materializes nothing but we still want a mode.
-      // Done before rescan so the throwaway probe file is never seen by Syncthing.
-      // `undefined` (empty target / sources all missing) keeps the prior value.
-      const storageMode = await this.detectStorageMode(target.exportPath, files);
-      await this.syncthing.rescan(target.syncthingFolderId);
-      await this.updateStatus(target.id, 'idle', { lastSyncedAt: new Date(), clearError: true, storageMode });
-
-      this.logger.log(
-        `[${event}] [end] targetId=${target.id} linked=${linked} copied=${copied} pruned=${pruned}${storageMode ? ` storageMode=${storageMode}` : ''}`,
-      );
-    } catch (err) {
-      const errorMessage = sanitizeLogValue(err instanceof Error ? err.message : String(err));
-      this.logger.error(`[${event}] [fail] targetId=${target.id} error="${errorMessage}"`);
-      await this.updateStatus(target.id, 'error', { lastError: errorMessage });
-      throw err;
+    } finally {
+      this.reconcileInFlight.delete(target.id);
     }
   }
 
@@ -119,7 +145,7 @@ export class SyncReconcilerService {
     for (const file of files) {
       const relPath = this.resolveRelPath(file, metaByBookId.get(file.bookId), pattern);
       const candidate = this.deduplicatePath(relPath, used);
-      used.set(candidate, file);
+      used.set(candidate.toLowerCase(), file);
       result.set(file, candidate);
     }
     return result;
@@ -203,11 +229,11 @@ export class SyncReconcilerService {
   }
 
   private deduplicatePath(candidate: string, used: Map<string, BookFile>): string {
-    if (!used.has(candidate)) return candidate;
+    if (!used.has(candidate.toLowerCase())) return candidate;
     const ext = extname(candidate);
     const stem = candidate.slice(0, candidate.length - ext.length);
     let n = 2;
-    while (used.has(`${stem} (${n})${ext}`)) n++;
+    while (used.has(`${stem} (${n})${ext}`.toLowerCase())) n++;
     return `${stem} (${n})${ext}`;
   }
 
@@ -243,6 +269,20 @@ export class SyncReconcilerService {
     const prefix = exportPath.endsWith('/') ? exportPath : exportPath + '/';
     if (!abs.startsWith(prefix)) return null;
     return abs;
+  }
+
+  private async isStale(srcPath: string, destPath: string): Promise<boolean> {
+    const [srcStat, destStat] = await Promise.all([
+      stat(srcPath).catch(() => null),
+      stat(destPath).catch(() => null),
+    ]);
+    if (!srcStat) return false; // source gone; keep existing dest rather than delete-and-fail
+    if (!destStat) return true;
+    if (srcStat.size !== destStat.size) return true;
+    if (srcStat.mtimeMs !== destStat.mtimeMs) return true;
+    // Same device: diverged inodes mean a hardlink was severed by an in-place rewrite
+    if (srcStat.dev === destStat.dev && srcStat.ino !== destStat.ino) return true;
+    return false;
   }
 
   private async linkOrCopy(src: string, dest: string): Promise<'link' | 'copy'> {

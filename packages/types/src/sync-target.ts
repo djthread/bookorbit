@@ -1,4 +1,4 @@
-export type SyncTargetStatus = 'idle' | 'reconciling' | 'syncing' | 'error';
+export type SyncTargetStatus = 'idle' | 'reconciling' | 'error';
 
 export type SyncTargetMode = 'sendonly';
 

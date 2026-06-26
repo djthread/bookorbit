@@ -209,7 +209,7 @@ function formatTime(dateStr: string | null): string {
 }
 
 function statusLabel(status: string): string {
-  return ({ idle: 'Idle', reconciling: 'Reconciling', syncing: 'Syncing', error: 'Error' } as Record<string, string>)[status] ?? status
+  return ({ idle: 'Idle', reconciling: 'Reconciling', error: 'Error' } as Record<string, string>)[status] ?? status
 }
 
 const STORAGE_MODE_INFO: Record<NonNullable<SyncTarget['storageMode']>, { label: string; hint: string }> = {
@@ -342,7 +342,6 @@ function deviceConnected(targetId: number): boolean {
                   class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
                   :class="{
                     'bg-muted text-muted-foreground': target.status === 'idle',
-                    'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400': target.status === 'syncing',
                     'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400': target.status === 'reconciling',
                     'bg-destructive/10 text-destructive': target.status === 'error',
                   }"

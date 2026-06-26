@@ -97,5 +97,8 @@ export function validateEnv(config: Record<string, unknown>) {
   if (result.data.NODE_ENV === 'production' && !result.data.SETUP_BOOTSTRAP_TOKEN?.trim()) {
     throw new Error('Environment validation failed:\n  SETUP_BOOTSTRAP_TOKEN: SETUP_BOOTSTRAP_TOKEN is required in production');
   }
+  if (['true', '1', 'yes', 'on'].includes(result.data.SYNC_ENABLED ?? '') && !result.data.SYNCTHING_API_KEY?.trim()) {
+    throw new Error('Environment validation failed:\n  SYNCTHING_API_KEY: SYNCTHING_API_KEY is required when SYNC_ENABLED is true');
+  }
   return result.data;
 }
