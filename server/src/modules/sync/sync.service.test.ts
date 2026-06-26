@@ -57,6 +57,7 @@ function makeService(syncEnabled = true) {
     getDeviceId: vi.fn(),
     listPendingDevices: vi.fn(),
     getCompletion: vi.fn(),
+    isDeviceConnected: vi.fn().mockResolvedValue(true),
     ensureFolder: vi.fn().mockResolvedValue(undefined),
     acceptDevice: vi.fn().mockResolvedValue(undefined),
     removeFolder: vi.fn().mockResolvedValue(undefined),
@@ -320,6 +321,37 @@ describe('SyncService', () => {
 
       expect(syncthing.getCompletion).not.toHaveBeenCalled();
       expect(result.lastCompletion).toBe(50);
+    });
+
+    it('persists a fresh completion reading while the device is connected', async () => {
+      const { service, syncRepo, syncthing } = makeService();
+      syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz', lastCompletion: 40 }));
+      syncthing.getDeviceId.mockResolvedValue('our-device-id');
+      syncthing.listPendingDevices.mockResolvedValue([]);
+      syncthing.getCompletion.mockResolvedValue({ completion: 100 });
+      syncthing.isDeviceConnected.mockResolvedValue(true);
+
+      const result = await service.getStatus(1, makeUser());
+
+      expect(result.lastCompletion).toBe(100);
+      expect(result.deviceConnected).toBe(true);
+      expect(syncRepo.update).toHaveBeenCalledWith(1, 1, { lastCompletion: 100 });
+    });
+
+    it('keeps the stored completion when the device is offline', async () => {
+      const { service, syncRepo, syncthing } = makeService();
+      syncRepo.findById.mockResolvedValue(makeTarget({ deviceId: 'device-xyz', lastCompletion: 100 }));
+      syncthing.getDeviceId.mockResolvedValue('our-device-id');
+      syncthing.listPendingDevices.mockResolvedValue([]);
+      // A sleeping Kobo: Syncthing reports 0 for the disconnected device.
+      syncthing.getCompletion.mockResolvedValue({ completion: 0 });
+      syncthing.isDeviceConnected.mockResolvedValue(false);
+
+      const result = await service.getStatus(1, makeUser());
+
+      expect(result.lastCompletion).toBe(100);
+      expect(result.deviceConnected).toBe(false);
+      expect(syncRepo.update).not.toHaveBeenCalled();
     });
 
     it('returns stored completion when syncthing completion call fails', async () => {

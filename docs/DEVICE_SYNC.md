@@ -224,6 +224,52 @@ The `lastError` field in the status panel contains the specific error message. C
 | Source file missing | The book's `absolutePath` no longer exists on disk. Remove the book from the collection or re-scan the library. |
 | Export directory not writable | Ensure `./data/app` is writable by the container's UID/GID (`PUID`/`PGID`). |
 
+### The device keeps going "out of sync" / progress drops back to 0%
+
+A sync that completes and then immediately reads as out of sync (BookOrbit shows a
+low or `0%` progress even though the device's Syncthing says "Up to Date") almost
+always means the **receive-only folder on the device is being modified locally**.
+There are two common sources:
+
+1. **Filesystem permissions.** E-readers use FAT/exFAT storage, which can't store
+   Unix permission bits. If Syncthing sends permission metadata the device can't
+   apply, the device flags the received files — *including the book files
+   themselves* — as locally changed on its next scan. Those local changes diverge
+   from BookOrbit's copies, so the server reports the device as needing every file
+   again.
+
+   BookOrbit sets **`ignorePerms: true`** on the folders it creates, which marks
+   files "no permission bits" so receivers stop churning on them. If you created a
+   sync target on an older version, apply it to the existing folder once:
+
+   ```bash
+   curl -X PATCH -H "X-API-Key: $SYNCTHING_API_KEY" \
+     http://127.0.0.1:8384/rest/config/folders/<folder-id> \
+     -d '{"ignorePerms":true}'
+   ```
+
+   Then, on the device, choose **Revert Local Changes** on the folder once to pull
+   BookOrbit's versions cleanly. It should stay in sync afterward.
+
+2. **KOReader sidecar files.** KOReader writes a `<book>.sdr/` folder (reading
+   position, bookmarks, per-book settings) next to each book. On a receive-only
+   folder these appear as **Local Additions** and keep the folder looking out of
+   sync. Either:
+   - Add a `.stignore` entry on the device folder (via the KOSyncthing+ ignore
+     patterns) so the sidecars are ignored:
+
+     ```
+     *.sdr
+     ```
+
+   - Or configure KOReader to store its metadata in a central `koreader/docsettings`
+     directory instead of alongside each book, keeping the synced folder limited to
+     the book files.
+
+> The device folder must be **Receive Only** — BookOrbit's side is Send Only, so the
+> device has to be the receiver. If both sides are Send Only, nothing transfers and
+> both report `0%`.
+
 ---
 
 ## Storage notes

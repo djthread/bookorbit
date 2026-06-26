@@ -228,6 +228,10 @@ function pendingDevices(targetId: number): PendingDevice[] {
 function syncCompletion(targetId: number): number | null {
   return statusMap.value[targetId]?.lastCompletion ?? targets.value.find((t) => t.id === targetId)?.lastCompletion ?? null
 }
+
+function deviceConnected(targetId: number): boolean {
+  return statusMap.value[targetId]?.deviceConnected ?? false
+}
 </script>
 
 <template>
@@ -372,7 +376,11 @@ function syncCompletion(targetId: number): number | null {
                 :style="{ width: `${syncCompletion(target.id)}%` }"
               />
             </div>
-            <p class="text-xs text-muted-foreground mt-1.5">Last synced: {{ formatTime(target.lastSyncedAt) }}</p>
+            <p class="text-xs text-muted-foreground mt-1.5">
+              <template v-if="(syncCompletion(target.id) ?? 0) >= 100">Up to date · synced {{ formatTime(target.lastSyncedAt) }}</template>
+              <template v-else-if="deviceConnected(target.id)">Syncing to device…</template>
+              <template v-else>Waiting for device to come online</template>
+            </p>
           </div>
 
           <!-- Error message -->
