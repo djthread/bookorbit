@@ -70,11 +70,16 @@ export class SyncthingClientService {
       if (!isNotFound(err)) throw err;
     }
 
+    // E-readers are almost always FAT/exFAT, which can't store Unix permission
+    // bits. Without ignorePerms, Syncthing sends permission metadata the device
+    // can't apply, so the device flags the received files as locally changed on
+    // its next scan — perpetually knocking the receive-only folder out of sync.
+    // Ignoring perms marks files "no permission bits" so receivers never churn.
     if (existing) {
-      await this.request('PATCH', `/rest/config/folders/${encodeURIComponent(id)}`, { label, path, type });
+      await this.request('PATCH', `/rest/config/folders/${encodeURIComponent(id)}`, { label, path, type, ignorePerms: true });
     } else {
       const defaults = await this.request<SyncthingFolderConfig>('GET', '/rest/config/defaults/folder');
-      const folder: SyncthingFolderConfig = { ...defaults, id, label, path, type, devices: [] };
+      const folder: SyncthingFolderConfig = { ...defaults, id, label, path, type, ignorePerms: true, devices: [] };
       await this.request('PUT', `/rest/config/folders/${encodeURIComponent(id)}`, folder);
     }
 
@@ -134,6 +139,11 @@ export class SyncthingClientService {
       'GET',
       `/rest/db/completion?folder=${encodeURIComponent(folderId)}&device=${encodeURIComponent(deviceId)}`,
     );
+  }
+
+  async isDeviceConnected(deviceId: string): Promise<boolean> {
+    const data = await this.request<{ connections: Record<string, { connected?: boolean }> }>('GET', '/rest/system/connections');
+    return data.connections?.[deviceId]?.connected ?? false;
   }
 
   async rescan(folderId: string): Promise<void> {

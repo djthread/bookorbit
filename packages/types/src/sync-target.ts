@@ -59,6 +59,8 @@ export interface SyncTargetProgress {
   lastSyncedAt: string | null;
   lastError: string | null;
   ourDeviceId: string;
+  /** Whether the paired device currently has a live Syncthing connection. */
+  deviceConnected: boolean;
   pendingDevices: PendingDevice[];
 }
 

@@ -87,7 +87,7 @@ describe('SyncthingClientService', () => {
       expect(patchArgs[0]).toBe('http://localhost:8384/rest/config/folders/folder-1');
       expect((patchArgs[1] as RequestInit).method).toBe('PATCH');
       const body = JSON.parse((patchArgs[1] as RequestInit).body as string);
-      expect(body).toMatchObject({ label: 'My Books', path: '/data/sync/1', type: 'sendonly' });
+      expect(body).toMatchObject({ label: 'My Books', path: '/data/sync/1', type: 'sendonly', ignorePerms: true });
     });
 
     it('GETs defaults and PUTs a new folder when none exists', async () => {
@@ -103,7 +103,7 @@ describe('SyncthingClientService', () => {
       expect(putCall[0]).toBe('http://localhost:8384/rest/config/folders/folder-1');
       expect((putCall[1] as RequestInit).method).toBe('PUT');
       const body = JSON.parse((putCall[1] as RequestInit).body as string);
-      expect(body).toMatchObject({ id: 'folder-1', label: 'My Books', path: '/data/sync/1', type: 'sendonly', devices: [] });
+      expect(body).toMatchObject({ id: 'folder-1', label: 'My Books', path: '/data/sync/1', type: 'sendonly', ignorePerms: true, devices: [] });
     });
 
     it('re-throws non-404 errors from the GET', async () => {

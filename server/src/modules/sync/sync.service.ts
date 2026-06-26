@@ -184,10 +184,26 @@ export class SyncService {
     const [ourDeviceId, pendingDevices] = await Promise.all([this.syncthing.getDeviceId(), this.syncthing.listPendingDevices()]);
 
     let lastCompletion = target.lastCompletion;
+    let deviceConnected = false;
     if (target.deviceId) {
       try {
-        const completion = await this.syncthing.getCompletion(target.syncthingFolderId, target.deviceId);
-        lastCompletion = Math.round(completion.completion);
+        const [completion, connected] = await Promise.all([
+          this.syncthing.getCompletion(target.syncthingFolderId, target.deviceId),
+          this.syncthing.isDeviceConnected(target.deviceId),
+        ]);
+        deviceConnected = connected;
+        // Only trust the live reading while the device is connected. A sleeping
+        // Kobo drops its connection and Syncthing then reports completion 0,
+        // which would otherwise clobber a finished 100%. Persist the value so it
+        // survives the disconnect and server restarts; fall back to the stored
+        // value when the device is offline (unless we have never recorded one).
+        if (connected || target.lastCompletion === null) {
+          const live = Math.round(completion.completion);
+          if (live !== target.lastCompletion) {
+            await this.syncRepo.update(target.id, target.userId, { lastCompletion: live });
+          }
+          lastCompletion = live;
+        }
       } catch (err) {
         const msg = sanitizeLogValue(err instanceof Error ? err.message : String(err));
         this.logger.warn(`[sync] getCompletion failed targetId=${target.id} error="${msg}"`);
@@ -201,6 +217,7 @@ export class SyncService {
       lastSyncedAt: target.lastSyncedAt,
       lastError: target.lastError,
       ourDeviceId,
+      deviceConnected,
       pendingDevices,
     };
   }
