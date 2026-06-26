@@ -225,113 +225,119 @@ describe('SyncReconcilerService', () => {
       expect(mockCopyFile).toHaveBeenCalledWith('/books/neuromancer.epub', expect.any(String));
     });
 
-    // Marks each source path as existing (with a fs device id) so detectStorageMode
-    // can pick one representative per device to probe. Unknown paths reject (ENOENT).
-    function mockSourceDevices(devByPath: Record<string, number>): void {
+    // Resolves stat() per path so a test can describe the on-disk relationship
+    // between a source file and its counterpart in the export dir. A hardlink is
+    // expressed as a shared dev+ino; a copy as a differing dev and/or ino. Unknown
+    // paths reject with ENOENT. The export-dir path for the default author layout
+    // is `<exportPath>/<Author>/<Title> (<year>).<ext>`.
+    function makeStat(props: Partial<{ dev: number; ino: number; size: number; mtimeMs: number }>) {
+      return {
+        dev: 1,
+        ino: 1,
+        size: 1024,
+        mtimeMs: 1_000_000,
+        isDirectory: () => false,
+        isFile: () => true,
+        isSymbolicLink: () => false,
+        ...props,
+      } as any;
+    }
+
+    function mockStatByPath(byPath: Record<string, ReturnType<typeof makeStat>>): void {
       mockStat.mockImplementation(((p: string) => {
-        const dev = devByPath[p];
-        if (dev === undefined) return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
-        return Promise.resolve({ dev, isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false } as any);
+        const s = byPath[p];
+        if (!s) return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        return Promise.resolve(s);
       }) as never);
     }
 
-    // The storage-mode probe hardlinks into a `.bookorbit-linkprobe-*` path; make
-    // those calls succeed/fail per source while leaving real transfers untouched.
-    function mockLinkProbe(bySrc: (src: string) => 'ok' | 'exdev'): void {
-      mockLink.mockImplementation(((src: string) => {
-        if (bySrc(src) === 'exdev') return Promise.reject(Object.assign(new Error('EXDEV'), { code: 'EXDEV' }));
-        return Promise.resolve(undefined);
-      }) as never);
-    }
+    const NEUROMANCER_EXPORT = '/data/sync/1/William Gibson/Neuromancer (1984).epub';
 
-    it('records storageMode=hardlink when a probe link succeeds in the export dir', async () => {
+    it('records storageMode=hardlink when a new file is materialized as a hardlink', async () => {
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const { service, updateStatus } = makeService({ files: [file], meta });
 
-      mockReaddir.mockResolvedValue([]);
-      mockSourceDevices({ '/books/neuromancer.epub': 42 });
-      mockLinkProbe(() => 'ok');
+      mockReaddir.mockResolvedValue([]); // export dir empty → file is freshly linked in (link() succeeds by default)
 
       await service.reconcile(makeTarget());
 
       expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'hardlink' }));
     });
 
-    it('records storageMode=copy when a probe link returns EXDEV (separate mount / filesystem)', async () => {
+    it('records storageMode=copy when a new file falls back to copy on EXDEV', async () => {
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const { service, updateStatus } = makeService({ files: [file], meta });
 
       mockReaddir.mockResolvedValue([]);
-      mockSourceDevices({ '/books/neuromancer.epub': 7 });
-      mockLinkProbe(() => 'exdev');
+      mockLink.mockRejectedValueOnce(Object.assign(new Error('EXDEV'), { code: 'EXDEV' }));
 
       await service.reconcile(makeTarget());
 
       expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'copy' }));
     });
 
-    it('records storageMode=mixed when sources span multiple filesystems', async () => {
-      const sameFs = makeFile({ bookId: 1, absolutePath: '/books/neuromancer.epub' });
-      const otherFs = makeFile({ bookId: 2, absolutePath: '/mnt/extra/count-zero.epub' });
-      const meta = new Map([
-        [1, makeMeta(1)],
-        [2, makeMeta(2, { title: 'Count Zero' })],
-      ]);
-      const { service, updateStatus } = makeService({ files: [sameFs, otherFs], meta });
-
-      mockReaddir.mockResolvedValue([]);
-      mockSourceDevices({ '/books/neuromancer.epub': 42, '/mnt/extra/count-zero.epub': 7 });
-      mockLinkProbe((src) => (src.startsWith('/mnt/extra') ? 'exdev' : 'ok'));
-
-      await service.reconcile(makeTarget());
-
-      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'mixed' }));
-    });
-
-    it('records the mode even when no new files are materialized (already-synced target)', async () => {
+    it('records storageMode=copy for an already-synced file that is a plain copy (different inode from source)', async () => {
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const { service, updateStatus } = makeService({ files: [file], meta });
 
-      // File exists in the export dir and stats match → isStale returns false → nothing transferred.
-      // storageMode is null, so the probe runs to determine the mode.
+      // The book already exists in the export dir with identical size+mtime (so it is
+      // not stale) but on a different device/inode than its source — a real copy. This
+      // is the Docker "separate bind mounts" case the old per-run/probe logic mislabeled
+      // as "hardlink".
       vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
-      const st = { dev: 42, size: 1024, mtimeMs: 1_000_000, ino: 99, isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
-      mockStat.mockResolvedValue(st as any);
-      mockLinkProbe(() => 'ok');
+      mockStatByPath({
+        '/books/neuromancer.epub': makeStat({ dev: 7, ino: 100 }),
+        [NEUROMANCER_EXPORT]: makeStat({ dev: 42, ino: 200 }),
+      });
 
       await service.reconcile(makeTarget());
 
-      const transferLinks = mockLink.mock.calls.filter(([, dest]) => !String(dest).includes('linkprobe'));
-      expect(transferLinks).toHaveLength(0);
+      expect(mockLink).not.toHaveBeenCalled(); // nothing re-materialized
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'copy' }));
+    });
+
+    it('records storageMode=hardlink for an already-synced file that shares its source inode', async () => {
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const { service, updateStatus } = makeService({ files: [file], meta });
+
+      vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
+      mockStatByPath({
+        '/books/neuromancer.epub': makeStat({ dev: 42, ino: 99 }),
+        [NEUROMANCER_EXPORT]: makeStat({ dev: 42, ino: 99 }), // same dev+ino → genuine hardlink
+      });
+
+      await service.reconcile(makeTarget());
+
       expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'hardlink' }));
     });
 
-    it('probes before rescan so Syncthing never sees the throwaway probe file', async () => {
-      const file = makeFile();
-      const meta = new Map([[1, makeMeta(1)]]);
-      const syncthing = makeSyncthing();
-      const { service } = makeService({ files: [file], meta, syncthing });
+    it('records storageMode=mixed when some already-synced books are hardlinked and others copied', async () => {
+      const linked = makeFile({ bookId: 1, absolutePath: '/books/neuromancer.epub' });
+      const copied = makeFile({ bookId: 2, absolutePath: '/mnt/extra/count-zero.epub' });
+      const meta = new Map([
+        [1, makeMeta(1)],
+        [2, makeMeta(2, { title: 'Count Zero' })],
+      ]);
+      const { service, updateStatus } = makeService({ files: [linked, copied], meta });
 
-      // Already-synced: matching stats → not stale → nothing transferred → probe runs.
-      vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
-      const st = { dev: 42, size: 1024, mtimeMs: 1_000_000, ino: 99, isDirectory: () => false, isFile: () => true, isSymbolicLink: () => false };
-      mockStat.mockResolvedValue(st as any);
-
-      const probeDests: string[] = [];
-      mockLink.mockImplementation(((_src: string, dest: string) => {
-        if (String(dest).includes('linkprobe')) probeDests.push(String(dest));
-        return Promise.resolve(undefined);
-      }) as never);
+      vi.spyOn(service as any, 'scanExportDir').mockResolvedValue([
+        'William Gibson/Neuromancer (1984).epub',
+        'William Gibson/Count Zero (1984).epub',
+      ]);
+      mockStatByPath({
+        '/books/neuromancer.epub': makeStat({ dev: 42, ino: 99 }),
+        '/data/sync/1/William Gibson/Neuromancer (1984).epub': makeStat({ dev: 42, ino: 99 }), // hardlink
+        '/mnt/extra/count-zero.epub': makeStat({ dev: 7, ino: 500 }),
+        '/data/sync/1/William Gibson/Count Zero (1984).epub': makeStat({ dev: 42, ino: 600 }), // copy
+      });
 
       await service.reconcile(makeTarget());
 
-      // The probe file is removed in detectStorageMode, before rescan runs.
-      expect(probeDests).toHaveLength(1);
-      expect(mockRm).toHaveBeenCalledWith(probeDests[0], { force: true });
-      expect(syncthing.rescan).toHaveBeenCalledTimes(1);
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'mixed' }));
     });
 
     it('leaves storageMode unset for an empty target', async () => {
@@ -375,9 +381,9 @@ describe('SyncReconcilerService', () => {
 
       await service.reconcile(makeTarget());
 
-      // No real transfer; the only link allowed is the throwaway storage-mode probe.
-      const transferLinks = mockLink.mock.calls.filter(([, dest]) => !String(dest).includes('linkprobe'));
-      expect(transferLinks).toHaveLength(0);
+      // Already present and unchanged → classified in place, never re-linked or copied.
+      expect(mockLink).not.toHaveBeenCalled();
+      expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
     it('prunes files no longer in the collection', async () => {
