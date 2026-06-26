@@ -20,7 +20,7 @@ type RawTarget = typeof syncTargets.$inferSelect;
 export type SyncTargetRow = SyncTarget & { userId: number };
 
 @Injectable()
-export class SyncRepository {
+export class SyncthingRepository {
   constructor(@Inject(DB) private readonly db: Db) {}
 
   async findAllForUser(userId: number): Promise<SyncTargetRow[]> {

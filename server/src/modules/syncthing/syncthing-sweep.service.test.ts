@@ -1,20 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SyncSweepService } from './sync-sweep.service';
+import { SyncthingSweepService } from './syncthing-sweep.service';
 
 function makeSweep(enabled = true) {
   const syncRepo = { findAll: vi.fn().mockResolvedValue([]) };
   const reconciler = { reconcile: vi.fn().mockResolvedValue(undefined) };
   const config = { get: vi.fn(() => enabled) };
 
-  const service = new SyncSweepService(syncRepo as never, reconciler as never, config as never);
+  const service = new SyncthingSweepService(syncRepo as never, reconciler as never, config as never);
   return { service, syncRepo, reconciler };
 }
 
 const targetA = { id: 1, syncthingFolderId: 'fa', exportPath: '/data/sync/fa', layout: 'flat' };
 const targetB = { id: 2, syncthingFolderId: 'fb', exportPath: '/data/sync/fb', layout: 'author' };
 
-describe('SyncSweepService', () => {
+describe('SyncthingSweepService', () => {
   beforeEach(() => vi.clearAllMocks());
 
   it('does nothing when sync is disabled', async () => {

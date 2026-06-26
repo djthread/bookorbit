@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { COLLECTION_BOOKS_CHANGED } from '../collection/collection-events.service';
-import { SyncEventListenerService } from './sync-event-listener.service';
+import { SyncthingEventListenerService } from './syncthing-event-listener.service';
 
 function makeListener(enabled = true) {
   const collectionEvents = { on: vi.fn(), removeListener: vi.fn() };
@@ -9,13 +9,13 @@ function makeListener(enabled = true) {
   const reconciler = { reconcile: vi.fn().mockResolvedValue(undefined) };
   const config = { get: vi.fn(() => enabled) };
 
-  const listener = new SyncEventListenerService(collectionEvents as never, syncRepo as never, reconciler as never, config as never);
+  const listener = new SyncthingEventListenerService(collectionEvents as never, syncRepo as never, reconciler as never, config as never);
   return { listener, collectionEvents, syncRepo, reconciler };
 }
 
 const target = { id: 7, syncthingFolderId: 'f7', exportPath: '/data/sync/f7', layout: 'flat' };
 
-describe('SyncEventListenerService', () => {
+describe('SyncthingEventListenerService', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 

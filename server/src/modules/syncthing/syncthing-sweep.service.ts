@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
-import { SyncReconcilerService } from './sync-reconciler.service';
-import { SyncRepository } from './sync.repository';
+import { SyncthingReconcilerService } from './syncthing-reconciler.service';
+import { SyncthingRepository } from './syncthing.repository';
 
 /**
  * Periodic safety sweep: reconciles every sync target on a schedule to catch
@@ -14,14 +14,14 @@ import { SyncRepository } from './sync.repository';
  * reconcile; a re-entrancy guard prevents overlapping sweeps.
  */
 @Injectable()
-export class SyncSweepService {
-  private readonly logger = new Logger(SyncSweepService.name);
+export class SyncthingSweepService {
+  private readonly logger = new Logger(SyncthingSweepService.name);
   private readonly enabled: boolean;
   private running = false;
 
   constructor(
-    private readonly syncRepo: SyncRepository,
-    private readonly reconciler: SyncReconcilerService,
+    private readonly syncRepo: SyncthingRepository,
+    private readonly reconciler: SyncthingReconcilerService,
     config: ConfigService,
   ) {
     this.enabled = config.get<boolean>('sync.enabled') ?? false;

@@ -4,8 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import type { SyncTarget } from '@bookorbit/types';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
 import { COLLECTION_BOOKS_CHANGED, CollectionEventsService, type CollectionBooksChangedPayload } from '../collection/collection-events.service';
-import { SyncReconcilerService } from './sync-reconciler.service';
-import { SyncRepository } from './sync.repository';
+import { SyncthingReconcilerService } from './syncthing-reconciler.service';
+import { SyncthingRepository } from './syncthing.repository';
 
 const RECONCILE_DEBOUNCE_MS = 3_000;
 
@@ -17,8 +17,8 @@ type ReconcileTarget = Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath
  * add/remove operations collapses into a single reconcile.
  */
 @Injectable()
-export class SyncEventListenerService implements OnModuleInit, OnModuleDestroy {
-  private readonly logger = new Logger(SyncEventListenerService.name);
+export class SyncthingEventListenerService implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(SyncthingEventListenerService.name);
   private readonly enabled: boolean;
   private readonly debounceTimers = new Map<number, ReturnType<typeof setTimeout>>();
   private readonly handler = (payload: CollectionBooksChangedPayload): void => {
@@ -27,8 +27,8 @@ export class SyncEventListenerService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly collectionEvents: CollectionEventsService,
-    private readonly syncRepo: SyncRepository,
-    private readonly reconciler: SyncReconcilerService,
+    private readonly syncRepo: SyncthingRepository,
+    private readonly reconciler: SyncthingReconcilerService,
     config: ConfigService,
   ) {
     this.enabled = config.get<boolean>('sync.enabled')!;

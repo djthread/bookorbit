@@ -14,7 +14,7 @@ export function useSyncTargets() {
     if (fetchPromise) return fetchPromise
     loading.value = true
     error.value = null
-    fetchPromise = api('/api/v1/sync/targets')
+    fetchPromise = api('/api/v1/syncthing/targets')
       .then(async (res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`)
         targets.value = await res.json()
@@ -31,7 +31,7 @@ export function useSyncTargets() {
   }
 
   async function createTarget(payload: CreateSyncTargetPayload): Promise<SyncTarget> {
-    const res = await api('/api/v1/sync/targets', {
+    const res = await api('/api/v1/syncthing/targets', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -46,7 +46,7 @@ export function useSyncTargets() {
   }
 
   async function updateTarget(id: number, payload: UpdateSyncTargetPayload): Promise<SyncTarget> {
-    const res = await api(`/api/v1/sync/targets/${id}`, {
+    const res = await api(`/api/v1/syncthing/targets/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
@@ -61,18 +61,18 @@ export function useSyncTargets() {
   }
 
   async function deleteTarget(id: number): Promise<void> {
-    const res = await api(`/api/v1/sync/targets/${id}`, { method: 'DELETE' })
+    const res = await api(`/api/v1/syncthing/targets/${id}`, { method: 'DELETE' })
     if (!res.ok) throw new Error('Failed to delete sync target')
     targets.value = targets.value.filter((t) => t.id !== id)
   }
 
   async function reconcile(id: number): Promise<void> {
-    const res = await api(`/api/v1/sync/targets/${id}/reconcile`, { method: 'POST' })
+    const res = await api(`/api/v1/syncthing/targets/${id}/reconcile`, { method: 'POST' })
     if (!res.ok) throw new Error('Failed to trigger reconciliation')
   }
 
   async function acceptDevice(id: number, deviceId: string): Promise<SyncTarget> {
-    const res = await api(`/api/v1/sync/targets/${id}/accept-device`, {
+    const res = await api(`/api/v1/syncthing/targets/${id}/accept-device`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId }),

@@ -1,6 +1,8 @@
-# Device Sync — KOReader + Syncthing Setup Guide
+# Syncthing — Device Sync Setup Guide
 
-BookOrbit can automatically deliver your collection files to a KOReader device (Kobo, Kindle, PocketBook, Android, …) over a local network using **Syncthing** as the transport. No cloud account or manual cable transfers are needed.
+BookOrbit can automatically deliver your collection files to a device over a local network using **Syncthing** as the transport — any device that runs Syncthing and reads books from a folder works. No cloud account or manual cable transfers are needed.
+
+This guide walks through the most common setup: a **KOReader** device (Kobo, Kindle, PocketBook, Android, …). The same steps apply to any other Syncthing target — just point its synced folder wherever your reading app expects books.
 
 **How it works:**
 
@@ -42,7 +44,7 @@ Copy the output — you'll use it as `SYNCTHING_API_KEY`.
 Add or uncomment these lines in your `.env` file:
 
 ```dotenv
-# Enable the device sync module
+# Enable the Syncthing sync module
 SYNC_ENABLED=true
 
 # Must match STGUIAPIKEY in the Syncthing container
@@ -77,7 +79,7 @@ docker compose logs syncthing
 
 ## Step 2 — Create a sync target in BookOrbit
 
-1. Open BookOrbit in your browser and go to **Settings → Integrations → Device Sync**.
+1. Open BookOrbit in your browser and go to **Settings → Integrations → Syncthing**.
 2. Click **New target**.
 3. Enter a name (e.g. `Kobo Libra`) and select one or more collections to sync.
 4. Click **Create target**.
@@ -185,7 +187,7 @@ BookOrbit will create and manage a send-only folder in your Syncthing instance. 
 
 ## Triggering a manual sync
 
-BookOrbit syncs automatically: collection changes reconcile within seconds, and a periodic safety sweep catches anything else. To push immediately instead of waiting, go to **Settings → Integrations → Device Sync** and click the **Sync now** button on any sync target (re-scans your collections, updates the export folder, and tells Syncthing to push).
+BookOrbit syncs automatically: collection changes reconcile within seconds, and a periodic safety sweep catches anything else. To push immediately instead of waiting, go to **Settings → Integrations → Syncthing** and click the **Sync now** button on any sync target (re-scans your collections, updates the export folder, and tells Syncthing to push).
 
 This is useful right after editing a collection or book metadata, or if you believe the on-device state drifted.
 
@@ -198,7 +200,7 @@ This is useful right after editing a collection or book metadata, or if you beli
 - Check `SYNCTHING_API_KEY` is set in `.env` and matches `STGUIAPIKEY` passed to the container.
 - Inspect logs: `docker compose logs syncthing`.
 
-### "Device sync is not enabled on this server" error
+### "Syncthing is not enabled on this server" error
 
 `SYNC_ENABLED` is `false` (the default). Set `SYNC_ENABLED=true` in `.env` and restart the `app` container.
 
@@ -316,4 +318,4 @@ Best for fresh setups, because the `syncthing` sidecar **already** mounts `./dat
 
 Recreate the containers (`docker compose up -d`) and **recreate your sync targets** (the export path is fixed per target when it's created, so existing targets keep their old copy-based path). New targets will hardlink.
 
-Each sync target shows which mode it's actually using: a **Hardlinked** or **Copied** badge appears next to the target's status in **Settings → Integrations → Device Sync**, and the expanded panel explains the trade-off. The mode is verified on each reconcile (collection change, **Sync now**, or the periodic sweep) by attempting a real hardlink in the export directory, so it reflects what genuinely happens — not just whether the volumes happen to share a filesystem. A **Mixed** badge means your library spans multiple mounts relative to the export directory (some books hardlink, others copy).
+Each sync target shows which mode it's actually using: a **Hardlinked** or **Copied** badge appears next to the target's status in **Settings → Integrations → Syncthing**, and the expanded panel explains the trade-off. The mode is verified on each reconcile (collection change, **Sync now**, or the periodic sweep) by attempting a real hardlink in the export directory, so it reflects what genuinely happens — not just whether the volumes happen to share a filesystem. A **Mixed** badge means your library spans multiple mounts relative to the export directory (some books hardlink, others copy).

@@ -54,8 +54,8 @@ const sections = computed<Section[]>(() => {
     result.push({ label: 'Hardcover', routeName: 'settings-hardcover' })
   }
 
-  if (su || perms.includes(Permission.DeviceSync)) {
-    result.push({ label: 'Device Sync', routeName: 'settings-sync' })
+  if (su || perms.includes(Permission.Syncthing)) {
+    result.push({ label: 'Syncthing', routeName: 'settings-syncthing' })
   }
 
   if (su || perms.includes('manage_users') || perms.includes('manage_app_settings')) {

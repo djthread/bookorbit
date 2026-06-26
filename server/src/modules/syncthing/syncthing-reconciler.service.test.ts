@@ -4,7 +4,7 @@ import { link, copyFile, mkdir, readdir, rm, stat } from 'fs/promises';
 
 import type { SyncLayout, SyncStorageMode } from '@bookorbit/types';
 
-import { SyncReconcilerService } from './sync-reconciler.service';
+import { SyncthingReconcilerService } from './syncthing-reconciler.service';
 import { SyncthingClientService } from './syncthing-client.service';
 
 vi.mock('fs/promises', async () => {
@@ -75,9 +75,9 @@ function makeService(opts: {
   meta?: Map<number, ReturnType<typeof makeMeta>>;
   syncthing?: SyncthingClientService;
 }) {
-  const db = {} as ConstructorParameters<typeof SyncReconcilerService>[0];
+  const db = {} as ConstructorParameters<typeof SyncthingReconcilerService>[0];
   const syncthing = opts.syncthing ?? makeSyncthing();
-  const service = new SyncReconcilerService(db, syncthing);
+  const service = new SyncthingReconcilerService(db, syncthing);
 
   vi.spyOn(service as any, 'resolveTargetFiles').mockResolvedValue(opts.files ?? []);
   vi.spyOn(service as any, 'resolvePatternMetadata').mockResolvedValue(opts.meta ?? new Map());
@@ -86,7 +86,7 @@ function makeService(opts: {
   return { service, syncthing, updateStatus };
 }
 
-describe('SyncReconcilerService', () => {
+describe('SyncthingReconcilerService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockMkdir.mockResolvedValue(undefined as any);
@@ -103,7 +103,7 @@ describe('SyncReconcilerService', () => {
 
   describe('buildRelativePaths', () => {
     it('resolves Author/Title.ext for the author layout', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const result = service.buildRelativePaths([file], meta, 'author');
@@ -112,7 +112,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('flattens to Title.ext (no folders) for the default flat layout', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);
       const result = service.buildRelativePaths([file], meta);
@@ -121,7 +121,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('groups series into a folder but keeps standalone books flat for the series layout', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const standalone = makeFile({ bookId: 1, absolutePath: '/books/neuromancer.epub' });
       const inSeries = makeFile({ bookId: 2, absolutePath: '/books/count-zero.epub' });
       const meta = new Map([
@@ -134,7 +134,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('uses originalFilename as fallback when no metadata', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile({ bookId: 99 });
       const result = service.buildRelativePaths([file], new Map());
       const relPath = result.get(file)!;
@@ -142,7 +142,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('falls back to format extension when absolutePath has no extension', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile({ absolutePath: '/books/somebook', format: 'epub' });
       const meta = new Map([[1, makeMeta(1)]]);
       const result = service.buildRelativePaths([file], meta);
@@ -151,7 +151,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('deduplicates colliding paths by appending a counter', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file1 = makeFile({ bookId: 1, absolutePath: '/a/neuromancer.epub' });
       const file2 = makeFile({ bookId: 2, absolutePath: '/b/neuromancer.epub' });
       const meta = new Map([
@@ -165,7 +165,7 @@ describe('SyncReconcilerService', () => {
     });
 
     it('includes series subfolder when series metadata is present (author layout)', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1, { seriesName: 'Sprawl', seriesIndex: 1 })]]);
       const result = service.buildRelativePaths([file], meta, 'author');
@@ -174,25 +174,25 @@ describe('SyncReconcilerService', () => {
     });
 
     it('returns an empty map for empty input', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       expect(service.buildRelativePaths([], new Map()).size).toBe(0);
     });
   });
 
   describe('safeJoin', () => {
     it('returns the joined path within exportPath', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       const result = service.safeJoin('/data/sync/1', 'Author/Title.epub');
       expect(result).toBe('/data/sync/1/Author/Title.epub');
     });
 
     it('returns null for a path traversal attempt', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       expect(service.safeJoin('/data/sync/1', '../../../etc/passwd')).toBeNull();
     });
 
     it('returns null for a null byte in relPath', () => {
-      const service = new SyncReconcilerService({} as any, {} as any);
+      const service = new SyncthingReconcilerService({} as any, {} as any);
       expect(service.safeJoin('/data/sync/1', 'foo\0bar')).toBeNull();
     });
   });

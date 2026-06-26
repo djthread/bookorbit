@@ -54,7 +54,7 @@ _Experience the interface, built-in readers, and dashboard first-hand._
 
 - **Built-in Web Readers**: Native support for eBooks (EPUB, MOBI, AZW3), PDFs, Comics (CBZ, CBR), and Audiobooks (M4B, MP3) with no extra plugins required.
 - **Kobo & KOReader Integration**: Automatically push books to your Kobo devices and maintain two-way reading progress sync via KOReader over OPDS.
-- **Device Sync (Syncthing)**: Automatically deliver collection files to KOReader devices over a local network using the bundled Syncthing sidecar — no cloud account required. See the [Device Sync setup guide](docs/DEVICE_SYNC.md).
+- **Syncthing Device Sync**: Automatically deliver collection files to your devices (KOReader and any other Syncthing target) over a local network using the bundled Syncthing sidecar — no cloud account required. See the [Syncthing setup guide](docs/SYNCTHING.md).
 - **Reading Statistics**: Track your daily reading time, view heatmaps, maintain streaks, and monitor library health.
 
 ### Library Management
@@ -101,7 +101,7 @@ Open `http://your-server-ip:3000` and complete setup using your `SETUP_BOOTSTRAP
 
 For the full installation guide including reverse proxy setup, file permissions on NAS, external databases, and environment variable reference, see **[bookorbit.app/installation](https://bookorbit.app/installation.html)**.
 
-To enable automatic file delivery to KOReader devices via Syncthing, see **[docs/DEVICE_SYNC.md](docs/DEVICE_SYNC.md)**.
+To enable automatic file delivery to your devices via Syncthing, see **[docs/SYNCTHING.md](docs/SYNCTHING.md)**.
 
 ---
 

@@ -7,9 +7,9 @@ import { basename, join } from 'path';
 import { DEFAULT_SYNC_LAYOUT, type SyncOverview, type SyncTarget, type SyncTargetProgress } from '@bookorbit/types';
 import { sanitizeLogValue } from '../../common/utils/log-sanitize.utils';
 import type { RequestUser } from '../../common/types/request-user';
-import { SyncRepository } from './sync.repository';
+import { SyncthingRepository } from './syncthing.repository';
 import { SyncthingClientService } from './syncthing-client.service';
-import { SyncReconcilerService } from './sync-reconciler.service';
+import { SyncthingReconcilerService } from './syncthing-reconciler.service';
 import type { CreateSyncTargetDto } from './dto/create-sync-target.dto';
 import type { UpdateSyncTargetDto } from './dto/update-sync-target.dto';
 import type { AcceptDeviceDto } from './dto/accept-device.dto';
@@ -26,15 +26,15 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 @Injectable()
-export class SyncService {
-  private readonly logger = new Logger(SyncService.name);
+export class SyncthingService {
+  private readonly logger = new Logger(SyncthingService.name);
   private readonly syncEnabled: boolean;
   private readonly configExportPath: string;
 
   constructor(
-    private readonly syncRepo: SyncRepository,
+    private readonly syncRepo: SyncthingRepository,
     private readonly syncthing: SyncthingClientService,
-    private readonly reconciler: SyncReconcilerService,
+    private readonly reconciler: SyncthingReconcilerService,
     private readonly config: ConfigService,
   ) {
     this.syncEnabled = this.config.get<boolean>('sync.enabled')!;
@@ -43,7 +43,7 @@ export class SyncService {
 
   private assertEnabled(): void {
     if (!this.syncEnabled) {
-      throw new ServiceUnavailableException('Device sync is not enabled on this server');
+      throw new ServiceUnavailableException('Syncthing is not enabled on this server');
     }
   }
 
@@ -83,7 +83,7 @@ export class SyncService {
     const syncthingFolderId = randomUUID();
     const exportPath = join(this.configExportPath, syncthingFolderId);
 
-    let row: Awaited<ReturnType<SyncRepository['insert']>>;
+    let row: Awaited<ReturnType<SyncthingRepository['insert']>>;
     try {
       row = await this.syncRepo.insert({
         userId: user.id,

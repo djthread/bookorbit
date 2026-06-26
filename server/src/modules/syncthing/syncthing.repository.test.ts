@@ -10,7 +10,7 @@ vi.mock('drizzle-orm', () => ({
   ),
 }));
 
-import { SyncRepository } from './sync.repository';
+import { SyncthingRepository } from './syncthing.repository';
 
 function makeRawTarget(overrides?: Record<string, unknown>) {
   return {
@@ -44,7 +44,7 @@ function makeDb() {
   return db;
 }
 
-describe('SyncRepository', () => {
+describe('SyncthingRepository', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -64,7 +64,7 @@ describe('SyncRepository', () => {
 
       db.select.mockReturnValueOnce({ from: targetsFrom }).mockReturnValueOnce({ from: joinFrom });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.findAllForUser(10);
 
       expect(result).toHaveLength(1);
@@ -91,7 +91,7 @@ describe('SyncRepository', () => {
 
       db.select.mockReturnValueOnce({ from: targetsFrom }).mockReturnValueOnce({ from: joinFrom });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.findAllForUser(10);
 
       expect(result[0].collectionIds).toEqual([5, 6]);
@@ -107,7 +107,7 @@ describe('SyncRepository', () => {
 
       db.select.mockReturnValueOnce({ from: targetsFrom });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.findAllForUser(10);
 
       expect(result).toEqual([]);
@@ -124,7 +124,7 @@ describe('SyncRepository', () => {
       const from = vi.fn().mockReturnValue({ where });
       db.select.mockReturnValueOnce({ from });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.findById(99);
 
       expect(result).toBeNull();
@@ -144,7 +144,7 @@ describe('SyncRepository', () => {
 
       db.select.mockReturnValueOnce({ from }).mockReturnValueOnce({ from: joinFrom });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.findById(1);
 
       expect(result).not.toBeNull();
@@ -163,7 +163,7 @@ describe('SyncRepository', () => {
       const values = vi.fn().mockReturnValue({ returning });
       db.insert.mockReturnValue({ values });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.insert({
         userId: 10,
         name: 'Kobo Sync',
@@ -187,7 +187,7 @@ describe('SyncRepository', () => {
       const set = vi.fn().mockReturnValue({ where });
       db.update.mockReturnValue({ set });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.update(1, 10, { name: 'Renamed' });
 
       expect(result).toEqual(raw);
@@ -201,7 +201,7 @@ describe('SyncRepository', () => {
       const set = vi.fn().mockReturnValue({ where });
       db.update.mockReturnValue({ set });
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       const result = await repo.update(99, 10, { name: 'Ghost' });
 
       expect(result).toBeNull();
@@ -221,7 +221,7 @@ describe('SyncRepository', () => {
       const tx = { delete: txDelete, insert: txInsert };
       db.transaction.mockImplementation(async (cb: (t: typeof tx) => Promise<void>) => cb(tx));
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       await repo.setCollections(1, [3, 4]);
 
       expect(txDelete).toHaveBeenCalled();
@@ -243,7 +243,7 @@ describe('SyncRepository', () => {
       const tx = { delete: txDelete, insert: txInsert };
       db.transaction.mockImplementation(async (cb: (t: typeof tx) => Promise<void>) => cb(tx));
 
-      const repo = new SyncRepository(db as never);
+      const repo = new SyncthingRepository(db as never);
       await repo.setCollections(1, []);
 
       expect(txDelete).toHaveBeenCalled();

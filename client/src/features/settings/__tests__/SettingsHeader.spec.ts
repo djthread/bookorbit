@@ -88,12 +88,13 @@ describe('SettingsHeader', () => {
       expect(labels).toContain('Kobo')
       expect(labels).toContain('KOReader')
       expect(labels).toContain('Hardcover')
+      expect(labels).toContain('Syncthing')
       expect(labels).not.toContain('Integrations')
     })
 
     it('places integration tabs after OPDS', () => {
       const labels = getTabLabels(mountHeader({ su: true }))
-      expect(labels.slice(labels.indexOf('OPDS'), labels.indexOf('Admin'))).toEqual(['OPDS', 'Kobo', 'KOReader', 'Hardcover'])
+      expect(labels.slice(labels.indexOf('OPDS'), labels.indexOf('Admin'))).toEqual(['OPDS', 'Kobo', 'KOReader', 'Hardcover', 'Syncthing'])
     })
   })
 

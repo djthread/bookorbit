@@ -64,7 +64,7 @@ import { ReleaseNotesModule } from './modules/release-notes/release-notes.module
 import { AchievementModule } from './modules/achievement/achievement.module';
 import { HardcoverModule } from './modules/hardcover/hardcover.module';
 import { CustomMetadataModule } from './modules/custom-metadata/custom-metadata.module';
-import { SyncModule } from './modules/sync/sync.module';
+import { SyncthingModule } from './modules/syncthing/syncthing.module';
 
 @Module({
   imports: [
@@ -137,7 +137,7 @@ import { SyncModule } from './modules/sync/sync.module';
     ReleaseNotesModule,
     AchievementModule,
     HardcoverModule,
-    SyncModule,
+    SyncthingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
