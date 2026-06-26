@@ -281,7 +281,13 @@ When BookOrbit exports a book it tries to **hardlink** it into the sync folder (
 
 > **Same filesystem is not enough — it must be the same mount.** `link(2)` fails across different mount points *even when both point at the same physical filesystem*. In the default `docker-compose.yml`, your library (`/books`) and the export directory (under `/data`) are **two separate bind mounts**, so hardlinks never succeed even if `./books` and `./data/app` live on the same XFS/ext4 volume on the host. This is a hard kernel limitation, not a BookOrbit choice.
 
-**To get hardlinks, put the library and the export directory under a single mount.** The simplest way is to keep the export directory *inside* the books mount:
+> **A nested host path does not help.** Relocating the library's *host* directory to sit physically inside `./data/app` (e.g. `BOOKS_HOST_PATH=./data/app/books`) still leaves it mounted at container target `/books`, which Docker creates as its own bind mount — separate from `/data`. What matters is the **mount as seen inside the container**, not where the host directories nest. The library has to be *reached through* the same mount as the export directory.
+
+**To get hardlinks, put the library and the export directory under a single mount inside the container.** There are two ways to do this — pick whichever fits your setup:
+
+### Option A — keep the export *inside* the books mount
+
+Best if your library already lives at `/books` and you don't want to reorganize it.
 
 1. In `.env`, point the export path at a hidden subdirectory of the books mount:
 
@@ -298,6 +304,16 @@ When BookOrbit exports a book it tries to **hardlink** it into the sync folder (
          - ${BOOKS_HOST_PATH:-./books}:/books
    ```
 
-3. Recreate the containers (`docker compose up -d`) and **recreate your sync targets** (the export path is fixed per target when it's created, so existing targets keep their old copy-based path). New targets will hardlink.
+### Option B — keep the library *inside* the `/data` mount
+
+Best for fresh setups, because the `syncthing` sidecar **already** mounts `./data/app:/data`, so it needs **no compose edit** to serve the export. Both the library and the default export directory (`/data/sync`) then live on the single shared `/data` mount.
+
+1. Store your library under the app data directory on the host (e.g. `./data/app/books`) so it is reachable inside the container through the existing `/data` mount at `/data/books`. When you create the library in BookOrbit (**Libraries → New library → Scan folders**), add **`/data/books`** as the scan folder — not `/books`. Leave `SYNC_EXPORT_PATH` unset so it keeps the `/data/sync` default.
+
+2. The separate `/books` bind mount in the `app` service becomes unused; you can leave it or remove it. No change to the `syncthing` service is needed — it already has `/data`.
+
+### Then, for either option
+
+Recreate the containers (`docker compose up -d`) and **recreate your sync targets** (the export path is fixed per target when it's created, so existing targets keep their old copy-based path). New targets will hardlink.
 
 Each sync target shows which mode it's actually using: a **Hardlinked** or **Copied** badge appears next to the target's status in **Settings → Integrations → Device Sync**, and the expanded panel explains the trade-off. The mode is verified on each reconcile (collection change, **Sync now**, or the periodic sweep) by attempting a real hardlink in the export directory, so it reflects what genuinely happens — not just whether the volumes happen to share a filesystem. A **Mixed** badge means your library spans multiple mounts relative to the export directory (some books hardlink, others copy).
