@@ -211,6 +211,40 @@ describe('SyncthingReconcilerService', () => {
       expect(mockCopyFile).not.toHaveBeenCalled();
     });
 
+    it('coalesces concurrent reconciles into a single rerun after the in-flight pass', async () => {
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const { service } = makeService({ files: [file], meta });
+
+      mockReaddir.mockResolvedValue([]);
+
+      // Hold the first pass open at file resolution so further requests arrive
+      // while it is in flight.
+      let releaseFirst!: () => void;
+      const firstGate = new Promise<void>((resolve) => {
+        releaseFirst = resolve;
+      });
+      const resolveFiles = (service as any).resolveTargetFiles as MockedFunction<() => Promise<ReturnType<typeof makeFile>[]>>;
+      resolveFiles.mockReset();
+      resolveFiles
+        .mockImplementationOnce(async () => {
+          await firstGate;
+          return [file];
+        })
+        .mockResolvedValue([file]);
+
+      const first = service.reconcile(makeTarget());
+      // Two requests land mid-flight; they collapse into one queued rerun.
+      await service.reconcile(makeTarget());
+      await service.reconcile(makeTarget());
+
+      releaseFirst();
+      await first;
+
+      // Original pass + exactly one coalesced rerun (not two).
+      expect(resolveFiles).toHaveBeenCalledTimes(2);
+    });
+
     it('falls back to copyFile on EXDEV error from link', async () => {
       const file = makeFile();
       const meta = new Map([[1, makeMeta(1)]]);

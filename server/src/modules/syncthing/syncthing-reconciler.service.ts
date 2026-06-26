@@ -36,21 +36,28 @@ interface PatternMeta {
   authors: string[];
 }
 
+type ReconcileTarget = Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout' | 'storageMode'>;
+
 @Injectable()
 export class SyncthingReconcilerService {
   private readonly logger = new Logger(SyncthingReconcilerService.name);
   private readonly reconcileInFlight = new Set<number>();
+  private readonly reconcilePending = new Map<number, ReconcileTarget>();
 
   constructor(
     @Inject(DB) private readonly db: Db,
     private readonly syncthing: SyncthingClientService,
   ) {}
 
-  async reconcile(target: Pick<SyncTarget, 'id' | 'syncthingFolderId' | 'exportPath' | 'layout' | 'storageMode'>): Promise<void> {
+  async reconcile(target: ReconcileTarget): Promise<void> {
     const event = 'sync.reconcile';
 
     if (this.reconcileInFlight.has(target.id)) {
-      this.logger.log(`[${event}] [skip] targetId=${target.id} reason=already-in-flight`);
+      // Coalesce: a change landed mid-reconcile. Remember the latest request and
+      // re-run once the current pass finishes, so the change isn't lost until the
+      // next periodic sweep. Repeated requests collapse into a single rerun.
+      this.reconcilePending.set(target.id, target);
+      this.logger.log(`[${event}] [coalesce] targetId=${target.id} reason=already-in-flight`);
       return;
     }
 
@@ -150,6 +157,13 @@ export class SyncthingReconcilerService {
       }
     } finally {
       this.reconcileInFlight.delete(target.id);
+      const pending = this.reconcilePending.get(target.id);
+      if (pending) {
+        this.reconcilePending.delete(target.id);
+        // The rerun logs and records its own failures; swallow here so it never
+        // masks the result of the pass that just completed.
+        await this.reconcile(pending).catch(() => {});
+      }
     }
   }
 

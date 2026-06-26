@@ -1,6 +1,8 @@
 import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
 
+import { Permission } from '@bookorbit/types';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { RequirePermission } from '../../common/decorators/require-permission.decorator';
 import type { RequestUser } from '../../common/types/request-user';
 import { AcceptDeviceDto } from './dto/accept-device.dto';
 import { CreateSyncTargetDto } from './dto/create-sync-target.dto';
@@ -8,6 +10,7 @@ import { UpdateSyncTargetDto } from './dto/update-sync-target.dto';
 import { SyncthingService } from './syncthing.service';
 
 @Controller('syncthing')
+@RequirePermission(Permission.Syncthing)
 export class SyncthingController {
   constructor(private readonly syncService: SyncthingService) {}
 
