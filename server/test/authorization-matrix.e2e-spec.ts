@@ -675,6 +675,11 @@ describe('Authorization matrix (e2e)', () => {
           path: '/storygraph/settings',
           token: 'allPerms',
         },
+        [Permission.Syncthing]: {
+          method: 'GET',
+          path: '/syncthing/targets',
+          token: 'allPerms',
+        },
         [Permission.DemoRestricted]: {
           method: 'GET',
           path: '/notifications',
