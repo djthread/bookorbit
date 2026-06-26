@@ -16,6 +16,7 @@ export const syncTargets = pgTable(
     deviceId: text('device_id'),
     mode: text('mode').notNull().default('sendonly'),
     layout: text('layout').notNull().default('flat'),
+    storageMode: text('storage_mode'),
     status: text('status').notNull().default('idle'),
     lastCompletion: integer('last_completion'),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),

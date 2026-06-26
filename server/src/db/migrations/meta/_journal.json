@@ -239,6 +239,13 @@
       "when": 1782408999265,
       "tag": "0033_add_sync_layout",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782434761567,
+      "tag": "0034_add_sync_storage_mode",
+      "breakpoints": true
     }
   ]
 }

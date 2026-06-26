@@ -78,9 +78,9 @@ function makeService(opts: {
 
   vi.spyOn(service as any, 'resolveTargetFiles').mockResolvedValue(opts.files ?? []);
   vi.spyOn(service as any, 'resolvePatternMetadata').mockResolvedValue(opts.meta ?? new Map());
-  vi.spyOn(service as any, 'updateStatus').mockResolvedValue(undefined);
+  const updateStatus = vi.spyOn(service as any, 'updateStatus').mockResolvedValue(undefined);
 
-  return { service, syncthing };
+  return { service, syncthing, updateStatus };
 }
 
 describe('SyncReconcilerService', () => {
@@ -220,6 +220,84 @@ describe('SyncReconcilerService', () => {
       await service.reconcile(makeTarget());
 
       expect(mockCopyFile).toHaveBeenCalledWith('/books/neuromancer.epub', expect.any(String));
+    });
+
+    // Maps each path to a filesystem device id so detectStorageMode can compare
+    // the export dir's device against each source file's device.
+    function mockDevices(devByPath: Record<string, number>): void {
+      mockStat.mockImplementation(((p: string) => {
+        const dev = devByPath[p];
+        if (dev === undefined) return Promise.reject(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+        return Promise.resolve({ dev } as any);
+      }) as never);
+    }
+
+    it('records storageMode=hardlink when the source shares the export filesystem', async () => {
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const { service, updateStatus } = makeService({ files: [file], meta });
+
+      mockReaddir.mockResolvedValue([]);
+      mockDevices({ '/data/sync/1': 42, '/books/neuromancer.epub': 42 });
+
+      await service.reconcile(makeTarget());
+
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'hardlink' }));
+    });
+
+    it('records storageMode=copy when the source is on a different filesystem', async () => {
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const { service, updateStatus } = makeService({ files: [file], meta });
+
+      mockReaddir.mockResolvedValue([]);
+      mockDevices({ '/data/sync/1': 42, '/books/neuromancer.epub': 7 });
+
+      await service.reconcile(makeTarget());
+
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'copy' }));
+    });
+
+    it('records storageMode=mixed when sources span multiple filesystems', async () => {
+      const sameFs = makeFile({ bookId: 1, absolutePath: '/books/neuromancer.epub' });
+      const otherFs = makeFile({ bookId: 2, absolutePath: '/mnt/extra/count-zero.epub' });
+      const meta = new Map([
+        [1, makeMeta(1)],
+        [2, makeMeta(2, { title: 'Count Zero' })],
+      ]);
+      const { service, updateStatus } = makeService({ files: [sameFs, otherFs], meta });
+
+      mockReaddir.mockResolvedValue([]);
+      mockDevices({ '/data/sync/1': 42, '/books/neuromancer.epub': 42, '/mnt/extra/count-zero.epub': 7 });
+
+      await service.reconcile(makeTarget());
+
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'mixed' }));
+    });
+
+    it('records the mode even when no new files are materialized (already-synced target)', async () => {
+      const file = makeFile();
+      const meta = new Map([[1, makeMeta(1)]]);
+      const { service, updateStatus } = makeService({ files: [file], meta });
+
+      // The file already exists in the export dir, so nothing is linked/copied.
+      vi.spyOn(service as any, 'scanExportDir').mockResolvedValue(['William Gibson/Neuromancer (1984).epub']);
+      mockDevices({ '/data/sync/1': 42, '/books/neuromancer.epub': 42 });
+
+      await service.reconcile(makeTarget());
+
+      expect(mockLink).not.toHaveBeenCalled();
+      expect(updateStatus).toHaveBeenCalledWith(1, 'idle', expect.objectContaining({ storageMode: 'hardlink' }));
+    });
+
+    it('leaves storageMode unset for an empty target', async () => {
+      const { service, updateStatus } = makeService({ files: [], meta: new Map() });
+
+      await service.reconcile(makeTarget());
+
+      const idleCall = updateStatus.mock.calls.find((c) => c[1] === 'idle');
+      expect(idleCall).toBeDefined();
+      expect((idleCall![2] as { storageMode?: string }).storageMode).toBeUndefined();
     });
 
     it('logs a warning and skips a file on non-EXDEV link errors', async () => {

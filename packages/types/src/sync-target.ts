@@ -3,6 +3,18 @@ export type SyncTargetStatus = 'idle' | 'reconciling' | 'syncing' | 'error';
 export type SyncTargetMode = 'sendonly';
 
 /**
+ * How exported book files are materialized into the Syncthing export dir.
+ * - `hardlink`: export dir and library share a filesystem; files share disk
+ *   blocks (near-zero extra storage).
+ * - `copy`: export dir is on a different filesystem; each book occupies extra
+ *   space equal to its file size.
+ * - `mixed`: a single reconcile both hardlinked and copied (libraries span
+ *   multiple filesystems relative to the export dir).
+ * `null` means no files have been materialized yet, so the mode is unknown.
+ */
+export type SyncStorageMode = 'hardlink' | 'copy' | 'mixed';
+
+/**
  * On-device folder layout for exported files. Controls the relative path each
  * book file gets in the Syncthing export dir (and therefore how KOReader / the
  * "My Bookshelf" plugin groups them on the device).
@@ -32,6 +44,8 @@ export interface SyncTarget {
   mode: SyncTargetMode;
   layout: SyncLayout;
   status: SyncTargetStatus;
+  /** How files were last materialized to the export dir; null until first sync. */
+  storageMode: SyncStorageMode | null;
   lastCompletion: number | null;
   lastSyncedAt: string | null;
   lastError: string | null;

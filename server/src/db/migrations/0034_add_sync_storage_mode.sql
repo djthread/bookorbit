@@ -1,0 +1,1 @@
+ALTER TABLE "sync_targets" ADD COLUMN "storage_mode" text;
