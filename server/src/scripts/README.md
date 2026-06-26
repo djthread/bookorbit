@@ -31,7 +31,7 @@ GITHUB_RELEASES_REPO=neonsolstice/playground pnpm whats-new:preview v4.2.0
 | ------------------------------------ | ---------------------------------------------------- | --------------------------------------------- |
 | `db-seed.ts`                         | `pnpm db:seed`                                       | Seed the dev database.                        |
 | `db-prepare-e2e.ts`                  | `pnpm e2e:db:prepare`                                | Prepare the e2e test database.                |
-| `migrate.ts`                         | `pnpm db:migrate:runtime` (compiled)                 | Apply database migrations at runtime/startup. |
+| `migrate.ts`                         | `pnpm db:migrate:runtime` (compiled)                 | Apply database migrations at runtime/startup. Hash-tracked per-migration runner; see the server README "Runtime migrations" section. |
 | `setup-kobo-cloudscraper.ts`         | `pnpm setup:kobo-cloudscraper`                       | Set up the Kobo cloudscraper integration.     |
 | `backfill-reading-session-events.ts` | `tsx src/scripts/backfill-reading-session-events.ts` | One-off backfill of reading-session events.   |
 | `bench-user-statistics.ts`           | `tsx src/scripts/bench-user-statistics.ts`           | Benchmark the user-statistics queries.        |

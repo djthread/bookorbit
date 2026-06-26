@@ -44,6 +44,23 @@ export const E2E_SUITES = Object.freeze({
       ...SHARED_DB_AND_HELPER_PATHS,
     ],
   },
+  "migration-runner": {
+    id: "migration-runner",
+    name: "Migration Runner",
+    timeout: 15,
+    lane: "smoke",
+    description: "Per-migration runtime runner - hash tracking, ordering, and legacy compatibility against real Postgres",
+    vitestTarget: "test/migration-runner.e2e-spec.ts",
+    junitOutput: `${TEST_RESULTS_DIR}/migration-runner-e2e-junit.xml`,
+    prepareDedicatedDatabase: false,
+    useDedicatedDatabase: false,
+    changedPaths: [
+      "server/src/scripts/migrate.ts",
+      "server/test/migration-runner.e2e-spec.ts",
+      "server/src/db/migrations/**",
+      ...SHARED_DB_AND_HELPER_PATHS,
+    ],
+  },
   "scanner-scenarios": {
     id: "scanner-scenarios",
     name: "Scanner Scenarios",
