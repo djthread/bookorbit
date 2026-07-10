@@ -575,6 +575,27 @@
       "when": 1787931558680,
       "tag": "0081_add_public_collections",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1783697127716,
+      "tag": "0082_add_sync_targets",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1783697137424,
+      "tag": "0083_add_sync_layout",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1783697153705,
+      "tag": "0084_add_sync_storage_mode",
+      "breakpoints": true
     }
   ]
 }
