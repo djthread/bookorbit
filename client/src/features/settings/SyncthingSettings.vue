@@ -286,12 +286,7 @@ function deviceConnected(targetId: number): boolean {
               :key="col.id"
               class="flex items-center gap-2.5 px-4 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors bg-card"
             >
-              <input
-                type="checkbox"
-                :checked="newCollectionIds.includes(col.id)"
-                class="accent-primary"
-                @change="toggleCollection(col.id)"
-              />
+              <input type="checkbox" :checked="newCollectionIds.includes(col.id)" class="accent-primary" @change="toggleCollection(col.id)" />
               <span class="text-sm text-foreground">{{ col.name }}</span>
             </label>
           </div>
@@ -306,11 +301,7 @@ function deviceConnected(targetId: number): boolean {
         </div>
 
         <div class="flex items-center gap-2 pt-1">
-          <button
-            class="settings-btn-primary"
-            :disabled="creating || !newName.trim() || newCollectionIds.length === 0"
-            @click="submitCreate()"
-          >
+          <button class="settings-btn-primary" :disabled="creating || !newName.trim() || newCollectionIds.length === 0" @click="submitCreate()">
             {{ creating ? 'Creating...' : 'Create target' }}
           </button>
           <button class="settings-btn-outline" @click="cancelCreate()">Cancel</button>
@@ -330,11 +321,7 @@ function deviceConnected(targetId: number): boolean {
 
       <!-- Target cards -->
       <div v-if="targets.length > 0" class="space-y-3">
-        <div
-          v-for="target in targets"
-          :key="target.id"
-          class="border border-border rounded-lg bg-card shadow-xs overflow-hidden"
-        >
+        <div v-for="target in targets" :key="target.id" class="border border-border rounded-lg bg-card shadow-xs overflow-hidden">
           <!-- Card header -->
           <div class="flex items-center gap-3 px-5 py-4">
             <div class="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground shrink-0 border border-border">
@@ -356,9 +343,11 @@ function deviceConnected(targetId: number): boolean {
                 <span
                   v-if="target.storageMode"
                   class="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
-                  :class="target.storageMode === 'hardlink'
-                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                    : 'bg-muted text-muted-foreground'"
+                  :class="
+                    target.storageMode === 'hardlink'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                      : 'bg-muted text-muted-foreground'
+                  "
                   :title="STORAGE_MODE_INFO[target.storageMode].hint"
                 >
                   <Link2 v-if="target.storageMode === 'hardlink'" :size="10" />
@@ -402,10 +391,7 @@ function deviceConnected(targetId: number): boolean {
               <span class="font-mono font-medium">{{ syncCompletion(target.id) }}%</span>
             </div>
             <div class="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                class="h-full bg-primary rounded-full transition-all duration-500"
-                :style="{ width: `${syncCompletion(target.id)}%` }"
-              />
+              <div class="h-full bg-primary rounded-full transition-all duration-500" :style="{ width: `${syncCompletion(target.id)}%` }" />
             </div>
             <p class="text-xs text-muted-foreground mt-1.5">
               <template v-if="(syncCompletion(target.id) ?? 0) >= 100">Up to date · synced {{ formatTime(target.lastSyncedAt) }}</template>
@@ -426,7 +412,6 @@ function deviceConnected(targetId: number): boolean {
           <!-- Expanded panel -->
           <div v-if="expandedIds.includes(target.id)" class="border-t border-border">
             <div class="p-5 space-y-5">
-
               <!-- Folder layout -->
               <div>
                 <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2.5">On-Device Folder Layout</p>
@@ -538,7 +523,10 @@ function deviceConnected(targetId: number): boolean {
                     <strong class="text-foreground">github.com/d0nizam/kosyncthing_plus.koplugin</strong>
                     for the plugin and setup guide.
                   </li>
-                  <li>In the plugin, open <strong class="text-foreground">Setup → Pair with another device</strong> and add the <strong class="text-foreground">BookOrbit device ID</strong> shown above.</li>
+                  <li>
+                    In the plugin, open <strong class="text-foreground">Setup → Pair with another device</strong> and add the
+                    <strong class="text-foreground">BookOrbit device ID</strong> shown above.
+                  </li>
                   <li>A confirmation will appear here — click <strong class="text-foreground">Accept</strong> to approve the connection.</li>
                   <li>
                     On your device, accept the shared folder and set the path to
@@ -548,7 +536,6 @@ function deviceConnected(targetId: number): boolean {
                   <li>Your collection will sync automatically whenever BookOrbit and the device are on the same network.</li>
                 </ol>
               </div>
-
             </div>
           </div>
         </div>

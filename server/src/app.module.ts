@@ -5,7 +5,17 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { LoggerModule } from 'nestjs-pino';
 
-import { appConfig, authConfig, dbConfig, emailConfig, fileWriteConfig, migrationConfig, oidcRuntimeConfig, storageConfig, syncConfig } from './config/config';
+import {
+  appConfig,
+  authConfig,
+  dbConfig,
+  emailConfig,
+  fileWriteConfig,
+  migrationConfig,
+  oidcRuntimeConfig,
+  storageConfig,
+  syncConfig,
+} from './config/config';
 import { validateEnv } from './config/env.validation';
 import { loggerConfig } from './common/logger.config';
 import { CommonModule } from './common/common.module';

@@ -1,6 +1,6 @@
-export type SyncTargetStatus = 'idle' | 'reconciling' | 'error';
+export type SyncTargetStatus = "idle" | "reconciling" | "error";
 
-export type SyncTargetMode = 'sendonly';
+export type SyncTargetMode = "sendonly";
 
 /**
  * How exported book files are materialized into the Syncthing export dir.
@@ -12,17 +12,17 @@ export type SyncTargetMode = 'sendonly';
  *   multiple filesystems relative to the export dir).
  * `null` means no files have been materialized yet, so the mode is unknown.
  */
-export type SyncStorageMode = 'hardlink' | 'copy' | 'mixed';
+export type SyncStorageMode = "hardlink" | "copy" | "mixed";
 
 /**
  * On-device folder layout for exported files. Controls the relative path each
  * book file gets in the Syncthing export dir.
  */
-export type SyncLayout = 'flat' | 'series' | 'author';
+export type SyncLayout = "flat" | "series" | "author";
 
-export const SYNC_LAYOUTS: readonly SyncLayout[] = ['flat', 'series', 'author'] as const;
+export const SYNC_LAYOUTS: readonly SyncLayout[] = ["flat", "series", "author"] as const;
 
-export const DEFAULT_SYNC_LAYOUT: SyncLayout = 'flat';
+export const DEFAULT_SYNC_LAYOUT: SyncLayout = "flat";
 
 /** Maps a layout to the upload pattern fed to {@link resolveUploadPath}. */
 export const SYNC_LAYOUT_PATTERNS: Record<SyncLayout, string> = {
