@@ -51,6 +51,7 @@ export interface SettingsNavItem {
   routeName: string
   labelKey: string
   label?: string
+  description?: string
   descriptionKey?: string
   icon: Component
   /** Extra English search terms so the rail search finds a page by concept, not just by title. */
@@ -354,6 +355,7 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         routeName: 'settings-syncthing',
         labelKey: 'settings.common.nav.koreader',
         label: 'Syncthing',
+        description: 'Push collections to your devices automatically over Syncthing.',
         icon: Share2,
         keywords: 'syncthing device sync files collection transfer offline local network',
         isVisible: anyPermission(Permission.Syncthing),

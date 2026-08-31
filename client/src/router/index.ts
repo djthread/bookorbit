@@ -373,6 +373,7 @@ export const routes: RouteRecordRaw[] = [
             path: 'syncthing',
             name: 'settings-syncthing',
             component: () => import('@/features/settings/SyncthingSettings.vue'),
+            props: { embedded: true },
             meta: { maxWidth: 'max-w-4xl', title: 'Syncthing' },
           },
           {

@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, HardDrive, Link2, Plus, RefreshCw, Server, Smartphone, Trash2, Wifi } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import QRCode from 'qrcode'
+import { Button } from '@/components/ui/button'
 import SettingsPageHeader from './SettingsPageHeader.vue'
 import { copyToClipboard } from '@/lib/clipboard'
 import { useSyncTargets } from '@/features/syncthing/composables/useSyncTargets'
@@ -17,7 +18,7 @@ const { targets, loading, error, fetchTargets, createTarget, updateTarget, delet
 const LAYOUT_OPTIONS: { value: SyncLayout; label: string; hint: string }[] = [
   { value: 'flat', label: 'Flat — all books together', hint: 'All files are colocated in the root share folder.' },
   { value: 'series', label: 'By series', hint: 'Series get their own shelf; standalone books stay at the top level.' },
-  { value: 'author', label: 'By author', hint: 'Author/Series/Title folders — mirrors KOReader’s native file tree.' },
+  { value: 'author', label: 'By author', hint: 'Author/Series/Title folders - organized for reader-friendly browsing.' },
 ]
 const { collections, fetchCollections } = useCollections()
 
@@ -146,6 +147,10 @@ function cancelCreate(): void {
   newLayout.value = 'flat'
 }
 
+function beginCreate(): void {
+  showCreateForm.value = true
+}
+
 async function handleLayoutChange(target: SyncTarget, layout: SyncLayout): Promise<void> {
   if (layout === target.layout) return
   updatingLayout.value = target.id
@@ -208,6 +213,12 @@ async function copyText(text: string, label: string): Promise<void> {
   else toast.error(`Failed to copy ${label.toLowerCase()}`)
 }
 
+function copyOurDeviceId(): void {
+  if (overview.value?.ourDeviceId) {
+    void copyText(overview.value.ourDeviceId, 'Device ID')
+  }
+}
+
 function formatTime(dateStr: string | null): string {
   if (!dateStr) return 'Never'
   const d = new Date(dateStr)
@@ -264,10 +275,10 @@ function deviceConnected(targetId: number): boolean {
     <div class="mb-8">
       <div class="flex items-center justify-between mb-3">
         <p class="settings-group-label mb-0">Sync Targets</p>
-        <button v-if="!showCreateForm" class="settings-btn-primary" @click="showCreateForm = true">
+        <Button v-if="!showCreateForm" size="sm" type="button" @click="beginCreate">
           <Plus :size="12" />
           New target
-        </button>
+        </Button>
       </div>
 
       <!-- Create form -->
@@ -301,17 +312,17 @@ function deviceConnected(targetId: number): boolean {
         </div>
 
         <div class="flex items-center gap-2 pt-1">
-          <button class="settings-btn-primary" :disabled="creating || !newName.trim() || newCollectionIds.length === 0" @click="submitCreate()">
+          <Button size="sm" type="button" :disabled="creating || !newName.trim() || newCollectionIds.length === 0" @click="submitCreate">
             {{ creating ? 'Creating...' : 'Create target' }}
-          </button>
-          <button class="settings-btn-outline" @click="cancelCreate()">Cancel</button>
+          </Button>
+          <Button variant="outline" size="sm" type="button" @click="cancelCreate">Cancel</Button>
         </div>
       </div>
 
       <!-- Empty state -->
       <div v-if="targets.length === 0 && !showCreateForm" class="border border-border rounded-lg px-5 py-10 bg-card text-center shadow-xs">
         <div class="w-10 h-10 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-          <Smartphone :size="18" class="text-muted-foreground/70" />
+          <Smartphone :size="18" class="text-muted-foreground" />
         </div>
         <p class="text-sm font-medium text-foreground">No sync targets yet</p>
         <p class="text-xs text-muted-foreground mt-1 max-w-[280px] mx-auto">
@@ -358,29 +369,24 @@ function deviceConnected(targetId: number): boolean {
               </div>
             </div>
             <div class="flex items-center gap-1 shrink-0">
-              <button
-                class="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                type="button"
                 :class="{ 'animate-spin': reconcilingTarget === target.id }"
                 :disabled="reconcilingTarget === target.id"
-                title="Sync now — push collection changes to the device immediately"
+                title="Sync now: push collection changes to the device immediately"
                 @click="handleReconcile(target.id)"
               >
                 <RefreshCw :size="14" />
-              </button>
-              <button
-                class="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-                title="Delete sync target"
-                @click="handleDelete(target)"
-              >
+              </Button>
+              <Button variant="destructive-ghost" size="icon-sm" type="button" title="Delete sync target" @click="handleDelete(target)">
                 <Trash2 :size="14" />
-              </button>
-              <button
-                class="w-8 h-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                @click="toggleExpand(target.id)"
-              >
+              </Button>
+              <Button variant="ghost" size="icon-sm" type="button" @click="toggleExpand(target.id)">
                 <ChevronUp v-if="expandedIds.includes(target.id)" :size="14" />
                 <ChevronDown v-else :size="14" />
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -452,13 +458,10 @@ function deviceConnected(targetId: number): boolean {
                       <span class="flex-1 text-xs font-mono text-foreground select-all truncate min-w-0">
                         {{ overview.ourDeviceId }}
                       </span>
-                      <button
-                        class="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded border border-border bg-background hover:bg-muted transition-colors shrink-0"
-                        @click="copyText(overview!.ourDeviceId, 'Device ID')"
-                      >
+                      <Button variant="outline" size="sm" type="button" class="h-7 shrink-0 gap-1 px-2 text-xs" @click="copyOurDeviceId">
                         <Copy :size="11" />
                         Copy
-                      </button>
+                      </Button>
                     </div>
                     <p class="text-xs text-muted-foreground">Add this device ID in the Syncthing app on your device (see setup steps below).</p>
                   </div>
@@ -499,14 +502,16 @@ function deviceConnected(targetId: number): boolean {
                       <p class="text-[11px] text-muted-foreground font-mono truncate">{{ device.deviceId }}</p>
                       <p class="text-[11px] text-muted-foreground">Seen {{ formatTime(device.seen) }}</p>
                     </div>
-                    <button
-                      class="settings-btn-primary shrink-0 flex items-center gap-1.5"
+                    <Button
+                      size="sm"
+                      type="button"
+                      class="shrink-0 gap-1.5"
                       :disabled="acceptingTarget === target.id"
                       @click="handleAcceptDevice(target, device.deviceId)"
                     >
                       <Check :size="12" />
                       {{ acceptingTarget === target.id ? 'Accepting...' : 'Accept' }}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -515,16 +520,19 @@ function deviceConnected(targetId: number): boolean {
               <div v-if="!target.deviceId" class="bg-muted/30 rounded-lg border border-border p-4">
                 <p class="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2.5">Setup Instructions</p>
                 <ol class="text-xs text-muted-foreground space-y-2 list-decimal list-inside leading-relaxed">
-                  <li>Install <strong class="text-foreground">KOReader</strong> on your device (e.g. Kobo, Kindle, PocketBook).</li>
                   <li>
-                    Install the
+                    Install <strong class="text-foreground">Syncthing</strong> or a compatible integration on your device (e.g. Kobo, Kindle,
+                    PocketBook).
+                  </li>
+                  <li>
+                    For KOReader, install the
                     <strong class="text-foreground">KOSyncthing+ plugin</strong>
-                    — see
+                    : see
                     <strong class="text-foreground">github.com/d0nizam/kosyncthing_plus.koplugin</strong>
                     for the plugin and setup guide.
                   </li>
                   <li>
-                    In the plugin, open <strong class="text-foreground">Setup → Pair with another device</strong> and add the
+                    Use your integration's pairing flow to add the
                     <strong class="text-foreground">BookOrbit device ID</strong> shown above.
                   </li>
                   <li>A confirmation will appear here — click <strong class="text-foreground">Accept</strong> to approve the connection.</li>

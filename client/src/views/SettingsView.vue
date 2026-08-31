@@ -13,8 +13,11 @@ const contentScroll = ref<HTMLElement | null>(null)
 
 const maxWidth = computed(() => (route.meta.maxWidth as string | undefined) ?? 'max-w-3xl')
 const match = computed(() => findSettingsNavItem(typeof route.name === 'string' ? route.name : ''))
-const pageTitle = computed(() => (match.value ? t(match.value.item.labelKey) : t('settings.nav.title')))
-const pageDescription = computed(() => (match.value?.item.descriptionKey ? t(match.value.item.descriptionKey) : ''))
+const pageTitle = computed(() => (match.value ? (match.value.item.label ?? t(match.value.item.labelKey)) : t('settings.nav.title')))
+const pageDescription = computed(() => {
+  if (!match.value) return ''
+  return match.value.item.description ?? (match.value.item.descriptionKey ? t(match.value.item.descriptionKey) : '')
+})
 
 const breadcrumb = computed(() => {
   if (!match.value) return []
@@ -33,7 +36,7 @@ watch(
 
 <template>
   <div class="mt-2 flex h-[calc(100%-0.5rem)] flex-col overflow-hidden rounded-lg border border-border/70 bg-card/40 shadow-sm">
-    <div class="shrink-0 border-b border-border/70 bg-card/60 px-4 py-3 md:px-6" data-testid="settings-page-header">
+    <div v-if="match" class="shrink-0 border-b border-border/70 bg-card/60 px-4 py-3 md:px-6" data-testid="settings-page-header">
       <div class="flex items-center gap-2 text-xs text-muted-foreground">
         <span>{{ t('settings.nav.title') }}</span>
         <template v-for="crumb in breadcrumb" :key="crumb">
@@ -41,7 +44,7 @@ watch(
           <span class="truncate">{{ crumb }}</span>
         </template>
       </div>
-      <SettingsPageHeader v-if="match" class="mb-0! mt-2" :title="pageTitle" :subtitle="pageDescription">
+      <SettingsPageHeader class="mb-0! mt-2" :title="pageTitle" :subtitle="pageDescription">
         <!-- Pages teleport their primary action here so it sits beside the title
              instead of being wedged into the page body. -->
         <div id="settings-header-actions" class="contents" />

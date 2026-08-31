@@ -44,6 +44,13 @@ describe('SettingsView shell', () => {
     expect(text).toContain('Enable external metadata sources')
   })
 
+  it('uses the Syncthing navigation label and description in the shared shell header', () => {
+    const wrapper = mountView('settings-syncthing')
+    expect(wrapper.find('[data-testid="settings-page-header"]').exists()).toBe(true)
+    expect(wrapper.find('.settings-title').text()).toBe('Syncthing')
+    expect(wrapper.find('.settings-subtitle').text()).toBe('Push collections to your devices automatically over Syncthing.')
+  })
+
   it('uses compact, consistent spacing below the shared page header', () => {
     const content = mountView('settings-account-profile').get('[data-testid="settings-page-content"]')
 
