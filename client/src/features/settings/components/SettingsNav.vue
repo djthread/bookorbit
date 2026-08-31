@@ -43,9 +43,13 @@ function branchTarget(item: SettingsNavItem): string {
   return item.children?.[0]?.routeName ?? item.routeName
 }
 
+function itemLabel(item: SettingsNavItem): string {
+  return item.label ?? t(item.labelKey)
+}
+
 function searchText(item: SettingsNavItem, group: SettingsNavGroup): string {
   const description = item.descriptionKey ? t(item.descriptionKey) : ''
-  return `${t(item.labelKey)} ${description} ${item.keywords ?? ''} ${t(group.labelKey)}`.toLowerCase()
+  return `${itemLabel(item)} ${description} ${item.keywords ?? ''} ${t(group.labelKey)}`.toLowerCase()
 }
 
 /** Leaf destinations only: a parent with children is never a navigation target on its own. */
@@ -62,7 +66,7 @@ const results = computed<SearchHit[]>(() => {
     .map(({ item, group }) => {
       const haystack = searchText(item, group)
       if (!terms.every((term) => haystack.includes(term))) return null
-      const label = t(item.labelKey).toLowerCase()
+      const label = itemLabel(item).toLowerCase()
       const lead = terms[0] ?? ''
       const rank = label.startsWith(lead) ? 0 : label.includes(lead) ? 1 : 2
       return { item, group, rank }
@@ -166,7 +170,7 @@ defineExpose({ focusSearch })
               :class="isActive(hit.item) ? 'font-medium text-sidebar-accent-foreground' : 'font-normal text-sidebar-foreground'"
               data-testid="settings-nav-result-label"
             >
-              {{ t(hit.item.labelKey) }}
+              {{ itemLabel(hit.item) }}
             </span>
             <span class="block truncate text-[11.5px] text-muted-foreground">{{ t(hit.group.labelKey) }}</span>
           </span>
@@ -207,7 +211,7 @@ defineExpose({ focusSearch })
                 :class="isBranchActive(item) ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground'"
                 data-testid="settings-nav-item-label"
               >
-                {{ t(item.labelKey) }}
+                {{ itemLabel(item) }}
               </span>
             </RouterLink>
 
@@ -221,7 +225,7 @@ defineExpose({ focusSearch })
                 :aria-current="isActive(child) ? 'page' : undefined"
                 data-testid="settings-nav-child"
               >
-                <span class="truncate">{{ t(child.labelKey) }}</span>
+                <span class="truncate">{{ itemLabel(child) }}</span>
               </RouterLink>
             </div>
           </template>

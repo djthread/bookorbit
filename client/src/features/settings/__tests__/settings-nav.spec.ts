@@ -89,6 +89,14 @@ describe('visibleSettingsNav', () => {
     expect(ids).toContain('metadata-custom-fields')
     expect(ids).not.toContain('metadata-providers')
   })
+
+  it('shows Syncthing only with its permission', () => {
+    const withoutPermission = visibleSettingsNav(NOBODY).find((group) => group.id === 'devices')
+    const withPermission = visibleSettingsNav({ ...NOBODY, permissions: [Permission.Syncthing] }).find((group) => group.id === 'devices')
+
+    expect(withoutPermission?.items.map((item) => item.id) ?? []).not.toContain('syncthing')
+    expect(withPermission?.items.map((item) => item.id) ?? []).toContain('syncthing')
+  })
 })
 
 describe('findSettingsNavItem', () => {

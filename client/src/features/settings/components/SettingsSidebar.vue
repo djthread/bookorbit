@@ -30,6 +30,10 @@ function leafItems(items: readonly SettingsNavItem[]): SettingsNavItem[] {
 function isActive(item: SettingsNavItem): boolean {
   return item.routeName === route.name
 }
+
+function itemLabel(item: SettingsNavItem): string {
+  return item.label ?? t(item.labelKey)
+}
 </script>
 
 <template>
@@ -68,7 +72,7 @@ function isActive(item: SettingsNavItem): boolean {
             class="truncate transition-colors group-hover:text-sidebar-accent-foreground"
             :class="isActive(item) ? 'text-sidebar-accent-foreground' : 'text-sidebar-foreground'"
           >
-            {{ t(item.labelKey) }}
+            {{ itemLabel(item) }}
           </span>
         </RouterLink>
       </SidebarSectionPopover>

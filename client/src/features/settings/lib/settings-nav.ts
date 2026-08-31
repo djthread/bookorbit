@@ -21,6 +21,7 @@ import {
   Palette,
   PanelBottom,
   Rss,
+  Share2,
   ScrollText,
   Server,
   Shield,
@@ -49,6 +50,7 @@ export interface SettingsNavItem {
   id: string
   routeName: string
   labelKey: string
+  label?: string
   descriptionKey?: string
   icon: Component
   /** Extra English search terms so the rail search finds a page by concept, not just by title. */
@@ -346,6 +348,15 @@ export const SETTINGS_NAV: readonly SettingsNavGroup[] = [
         icon: Smartphone,
         keywords: 'koreader progress sync credentials position',
         isVisible: anyPermission(Permission.KoreaderSync),
+      },
+      {
+        id: 'syncthing',
+        routeName: 'settings-syncthing',
+        labelKey: 'settings.common.nav.koreader',
+        label: 'Syncthing',
+        icon: Share2,
+        keywords: 'syncthing device sync files collection transfer offline local network',
+        isVisible: anyPermission(Permission.Syncthing),
       },
       {
         id: 'opds',
