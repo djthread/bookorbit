@@ -31,7 +31,7 @@ interface PatternMeta {
   bookId: number;
   title: string | null;
   seriesName: string | null;
-  seriesIndex: number | null;
+  seriesIndex: string | null;
   publishedYear: number | null;
   authors: string[];
 }

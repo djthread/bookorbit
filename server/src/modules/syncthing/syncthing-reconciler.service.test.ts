@@ -51,7 +51,7 @@ function makeFile(overrides: Partial<{ bookId: number; absolutePath: string; for
 
 function makeMeta(
   bookId: number,
-  overrides: Partial<{ title: string; authors: string[]; seriesName: string; seriesIndex: number; publishedYear: number }> = {},
+  overrides: Partial<{ title: string; authors: string[]; seriesName: string; seriesIndex: string; publishedYear: number }> = {},
 ) {
   return {
     bookId,
@@ -126,7 +126,7 @@ describe('SyncthingReconcilerService', () => {
       const inSeries = makeFile({ bookId: 2, absolutePath: '/books/count-zero.epub' });
       const meta = new Map([
         [1, makeMeta(1)],
-        [2, makeMeta(2, { seriesName: 'Sprawl', seriesIndex: 2 })],
+        [2, makeMeta(2, { seriesName: 'Sprawl', seriesIndex: '2' })],
       ]);
       const result = service.buildRelativePaths([standalone, inSeries], meta, 'series');
       expect(result.get(standalone)!).toBe('Neuromancer (1984).epub');
@@ -167,7 +167,7 @@ describe('SyncthingReconcilerService', () => {
     it('includes series subfolder when series metadata is present (author layout)', () => {
       const service = new SyncthingReconcilerService({} as any, {} as any);
       const file = makeFile();
-      const meta = new Map([[1, makeMeta(1, { seriesName: 'Sprawl', seriesIndex: 1 })]]);
+      const meta = new Map([[1, makeMeta(1, { seriesName: 'Sprawl', seriesIndex: '1' })]]);
       const result = service.buildRelativePaths([file], meta, 'author');
       const relPath = result.get(file)!;
       expect(relPath).toContain('Sprawl');
